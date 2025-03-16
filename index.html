@@ -74,7 +74,7 @@
             <h2>Config</h2>
             <div>
               <label>
-                Upload Background Image:
+                Background Image:
                 <input type="file" accept="image/*" onChange={handleFileUpload} />
               </label>
             </div>
@@ -95,34 +95,76 @@
        * Table editor component
        */
       function TableEditor({ entries, onChange, onAddEntry, onGroupEntries, onRemoveEntries }) {
+        const [selectAllChecked, setSelectAllChecked] = React.useState(false);
+        const [selectAllIndeterminate, setSelectAllIndeterminate] = React.useState(false);
+
+        const handleSelectAll = (e) => {
+          const checked = e.target.checked;
+          setSelectAllChecked(checked);
+          setSelectAllIndeterminate(false);
+          entries.forEach((group, groupIndex) => {
+            group.forEach((entry, entryIndex) => {
+              onChange(`${groupIndex}-${entryIndex}`, 'selected', checked);
+            });
+          });
+        };
+
+        React.useEffect(() => {
+          const totalEntries = entries.flat().length;
+          const selectedEntries = entries.flat().filter(entry => entry.selected).length;
+
+          if (selectedEntries === 0) {
+            setSelectAllChecked(false);
+            setSelectAllIndeterminate(false);
+          } else if (selectedEntries === totalEntries) {
+            setSelectAllChecked(true);
+            setSelectAllIndeterminate(false);
+          } else {
+            setSelectAllChecked(false);
+            setSelectAllIndeterminate(true);
+          }
+        }, [entries]);
+
         return (
-          <table>
-            <thead>
-              <tr>
-                <th>Select</th>
-                <th>Label</th>
-                <th>Content</th>
-                <th>PosX (%)</th>
-                <th>PosY (%)</th>
-                <th>Width (%)</th>
-                <th>Height (%)</th>
-              </tr>
-            </thead>
-            {entries.map((entry, groupIndex) => (
-              <tbody key={groupIndex}>
-                {entry.map((entry, index) => (
-                  <TableEditorEntry key={index} id={`${groupIndex}-${index}`} {...entry} onChange={onChange} />
-                ))}
-              </tbody>
-            ))}
-            <tfoot>
-              <tr><td colSpan="8">
-                <button onClick={onAddEntry}>Add new entry</button>
-                <button onClick={onGroupEntries}>Group selected</button>
-                <button onClick={onRemoveEntries}>Remove selected</button>
-              </td></tr>
-            </tfoot>
-          </table>
+          <div>
+            <h2>Entries</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>
+                    <input
+                      type="checkbox"
+                      checked={selectAllChecked}
+                      ref={el => el && (el.indeterminate = selectAllIndeterminate)}
+                      onChange={handleSelectAll}
+                    />
+                  </th>
+                  <th>Label</th>
+                  <th>Content</th>
+                  <th>PosX (%)</th>
+                  <th>PosY (%)</th>
+                  <th>Width (%)</th>
+                  <th>Height (%)</th>
+                </tr>
+              </thead>
+              {entries.map((entry, groupIndex) => (
+                <tbody key={groupIndex}>
+                  {entry.map((entry, index) => (
+                    <TableEditorEntry key={index} id={`${groupIndex}-${index}`} {...entry} onChange={onChange} />
+                  ))}
+                </tbody>
+              ))}
+              <tfoot>
+                <tr><td colSpan="8">
+                  <span>{entries.flat().filter(entry => entry.selected).length} rows selected - </span>
+                  <button onClick={onGroupEntries} disabled={entries.flat().filter(entry => entry.selected).length === 0}>Group</button>
+                  <button onClick={onRemoveEntries} disabled={entries.flat().filter(entry => entry.selected).length === 0}>Remove</button>
+
+                  <button onClick={onAddEntry}>Add</button>
+                </td></tr>
+              </tfoot>
+            </table>
+          </div>
         );
       }
 

@@ -94,7 +94,7 @@
       /**
        * Table editor component
        */
-      function TableEditor({ entries, onChange, onAddEntry, onGroupEntries, onIsolateEntries, onRemoveEntries }) {
+      function TableEditor({ entries, onChange, onAddEntry, onGroupEntries, onIsolateEntries, onMoveUp, onMoveDown, onRemoveEntries }) {
         const [selectAllChecked, setSelectAllChecked] = React.useState(false);
         const [selectAllIndeterminate, setSelectAllIndeterminate] = React.useState(false);
 
@@ -159,6 +159,10 @@
                   <span>{entries.flat().filter(entry => entry.selected).length} rows selected - </span>
                   <button onClick={onGroupEntries} disabled={entries.flat().filter(entry => entry.selected).length === 0}>Group</button>
                   <button onClick={onIsolateEntries} disabled={entries.flat().filter(entry => entry.selected).length === 0}>Isolate</button>
+
+                  <button onClick={onMoveUp} disabled={entries.flat().filter(entry => entry.selected).length === 0}>Move Up</button>
+                  <button onClick={onMoveDown} disabled={entries.flat().filter(entry => entry.selected).length === 0}>Move Down</button>
+
                   <button onClick={onRemoveEntries} disabled={entries.flat().filter(entry => entry.selected).length === 0}>Remove</button>
 
                   <button onClick={onAddEntry}>Add</button>
@@ -539,11 +543,83 @@
           );
         };
 
+        const  handleMoveDown = () => {
+          setEntries(prevEntries => {
+            const result = [];
+            let preventMoving = false;
+
+            prevEntries.reverse().forEach((group, groupId) => {
+              const newGroup = [];
+
+              group.reverse().forEach(entry => {
+                if (newGroup.length == 0) {
+                  // First entry in the group
+                  if (groupId == 0) {
+                    // Last group, unable to move down, prevent further moving if selected
+                    newGroup.push(entry);
+                    preventMoving = entry.selected;
+                  } else if(entry.selected && !preventMoving) {
+                    // Overlap with previous group
+                    result[0].unshift(entry);
+                  } else {
+                    newGroup.push(entry);
+                  }
+                } else if(entry.selected && !preventMoving) {
+                  // Move entry inside the group
+                  newGroup.splice(1, 0, entry);
+                } else {
+                  // Keep entry in the same position
+                  newGroup.unshift(entry);
+                }
+              });
+              result.unshift(newGroup);
+            });
+
+            return result.filter(group => group.length > 0);
+          });
+        };
+
+        const  handleMoveUp = () => {
+          setEntries(prevEntries => {
+            const result = [];
+            let preventMoving = false;
+
+            prevEntries.forEach((group, groupId) => {
+              const newGroup = [];
+
+              group.forEach(entry => {
+                if (newGroup.length == 0) {
+                  // First entry in the group
+                  if (groupId == 0) {
+                    // First group, unable to move up, prevent further moving if selected
+                    newGroup.push(entry);
+                    preventMoving = entry.selected;
+                  } else if(entry.selected && !preventMoving) {
+                    // Overlap with previous group
+                    result[result.length-1].push(entry);
+                  } else {
+                    newGroup.push(entry);
+                  }
+                } else if(entry.selected && !preventMoving) {
+                  // Move entry inside the group
+                  newGroup.splice(-1, 0, entry);
+                } else {
+                  // Keep entry in the same position
+                  newGroup.push(entry);
+                }
+              });
+              result.push(newGroup);
+            });
+
+            return result.filter(group => group.length > 0);
+          });
+        };
+
         return (
           <>
             <h1>Anki - Card-reveal Editor</h1>
             <Toolbar onReset={handleReset} />
-            <TableEditor entries={entries} onChange={handleEntryChange} onAddEntry={handleAddEntry} onGroupEntries={handleGroupEntries} onIsolateEntries={handleIsolateEntries} onRemoveEntries={handleRemoveEntries} />
+            <TableEditor entries={entries} onChange={handleEntryChange} onAddEntry={handleAddEntry} onGroupEntries={handleGroupEntries} onIsolateEntries={handleIsolateEntries} onMoveUp={handleMoveUp} onMoveDown={handleMoveDown} onRemoveEntries={handleRemoveEntries} />
             <Config config={config} />
             <VisualEditor entries={entries} config={config} />
           </>

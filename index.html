@@ -40,11 +40,10 @@
       /**
        * Table editor entry component
        */
-      function TableEditorEntry({ selected, id, label, content, posX, posY, width, height, onChange }) {
+      function TableEditorEntry({ id, selected, label, content, posX, posY, width, height, onChange }) {
         return (
           <tr>
             <td><input type="checkbox" checked={selected} onChange={(e) => onChange(id, 'selected', e.target.checked)} /></td>
-            <td><input type="text" value={id} onChange={(e) => onChange(id, 'id', e.target.value)} /></td>
             <td><input type="text" value={label} onChange={(e) => onChange(id, 'label', e.target.value)} /></td>
             <td><input type="text" value={content} onChange={(e) => onChange(id, 'content', e.target.value)} /></td>
             <td><input type="text" value={posX} onChange={(e) => onChange(id, 'posX', e.target.value)} /></td>
@@ -101,7 +100,6 @@
             <thead>
               <tr>
                 <th>Select</th>
-                <th>ID</th>
                 <th>Label</th>
                 <th>Content</th>
                 <th>PosX (%)</th>
@@ -110,10 +108,10 @@
                 <th>Height (%)</th>
               </tr>
             </thead>
-            {entries.map((entry, index) => (
-              <tbody key={index}>
+            {entries.map((entry, groupIndex) => (
+              <tbody key={groupIndex}>
                 {entry.map((entry, index) => (
-                  <TableEditorEntry key={index} {...entry} onChange={onChange} />
+                  <TableEditorEntry key={index} id={`${groupIndex}-${index}`} {...entry} onChange={onChange} />
                 ))}
               </tbody>
             ))}
@@ -377,13 +375,16 @@
               <img className="reveal-background" src={config.backgroundImage} />
               {entries.slice().reverse().map((group, groupIndex) => (
               <React.Fragment key={groupIndex}>
-                {group.map((entry, entryIndex) => (
-                <div key={entryIndex} className="reveal" style={{ left: `${entry.posX}%`, top: `${entry.posY}%`, width: `${entry.width}%`, height: `${entry.height}%` }}>
-                  <input id={entry.id} type="checkbox" />
-                  <label htmlFor={entry.id} dangerouslySetInnerHTML={{ __html: entry.label }} />
-                  <div dangerouslySetInnerHTML={{ __html: entry.content }} />
-                </div>
-                ))}
+                {group.map((entry, entryIndex) => {
+                  const id = `${groupIndex}-${entryIndex}`;
+                  return (
+                    <div key={entryIndex} className="reveal" style={{ left: `${entry.posX}%`, top: `${entry.posY}%`, width: `${entry.width}%`, height: `${entry.height}%` }}>
+                      <input id={id} type="checkbox" />
+                      <label htmlFor={id} dangerouslySetInnerHTML={{ __html: entry.label }} />
+                      <div dangerouslySetInnerHTML={{ __html: entry.content }} />
+                    </div>
+                  );
+                })}
                 {groupIndex < entries.length - 1 && <div className="reveal-sequencing"></div>}
               </React.Fragment>
               ))}
@@ -422,19 +423,18 @@
 
         const handleEntryChange = (id, field, value) => {
           setEntries(prevEntries =>
-            prevEntries.map(group =>
-              group.map(entry =>
-                entry.id === id ? { ...entry, [field]: value } : entry
-              )
+            prevEntries.map((group, groupIndex) =>
+              group.map((entry, entryIndex) => {
+                const entryId = `${groupIndex}-${entryIndex}`;
+                return entryId === id ? { ...entry, [field]: value } : entry;
+              })
             )
           );
         };
 
         const handleAddEntry = () => {
           setEntries(prevEntries => {
-            const ids = prevEntries.flat().map(entry => parseInt(entry.id)).filter(id => !isNaN(id));
-            const newId = ids.length === 0 ? "1" : (Math.max(...ids) + 1).toString();
-            const newEntry = { selected: false, id: newId, label: "", content: "", posX: "50", posY: "50", width: "10", height: "10" };
+            const newEntry = { selected: false, label: "", content: "", posX: "50", posY: "50", width: "10", height: "10" };
 
             if (prevEntries.length === 0) {
               return [[newEntry]];

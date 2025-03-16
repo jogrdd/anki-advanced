@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Anki - Card-reveal Editor</title>
+    <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.development.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.development.js"></script>
+
+    <!-- Don't use this in production: -->
+    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+    <style>
+      table {
+        border-collapse: collapse;
+      }
+      tbody {
+        border-bottom: 2px solid gray;
+      }
+      tbody:last-of-type {
+        border-bottom: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="text/babel">
+      /* React components */
+
+      /**
+       * Toolbar component
+       */
+      function Toolbar({ onReset }) {
+        return (
+          <div>
+            <button onClick={onReset}>Reset</button>
+            <button>Export to Clipboard</button>
+          </div>
+        );
+      }
+
+      /**
+       * Table editor entry component
+       */
+      function TableEditorEntry({ selected, id, label, content, posX, posY, width, height, onChange }) {
+        return (
+          <tr>
+            <td><input type="checkbox" checked={selected} onChange={(e) => onChange(id, 'selected', e.target.checked)} /></td>
+            <td><input type="text" value={id} onChange={(e) => onChange(id, 'id', e.target.value)} /></td>
+            <td><input type="text" value={label} onChange={(e) => onChange(id, 'label', e.target.value)} /></td>
+            <td><input type="text" value={content} onChange={(e) => onChange(id, 'content', e.target.value)} /></td>
+            <td><input type="text" value={posX} onChange={(e) => onChange(id, 'posX', e.target.value)} /></td>
+            <td><input type="text" value={posY} onChange={(e) => onChange(id, 'posY', e.target.value)} /></td>
+            <td><input type="text" value={width} onChange={(e) => onChange(id, 'width', e.target.value)} /></td>
+            <td><input type="text" value={height} onChange={(e) => onChange(id, 'height', e.target.value)} /></td>
+          </tr>
+        );
+      }
+
+      /**
+       * Config component
+       */
+      function Config({ config }) {
+        const handleFileUpload = (e) => {
+          const file = e.target.files[0];
+          if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              config.setBackgroundImage(reader.result);
+            };
+            reader.readAsDataURL(file);
+          }
+        };
+
+        return (
+          <div>
+            <h2>Config</h2>
+            <div>
+              <label>
+                Upload Background Image:
+                <input type="file" accept="image/*" onChange={handleFileUpload} />
+              </label>
+            </div>
+            <div>
+              <label><input type="checkbox" checked={config.reversible} onChange={(e) => config.setReversible(e.target.checked)} /> Reversible</label>
+            </div>
+            <div>
+              <label><input type="checkbox" checked={config.centered} onChange={(e) => config.setCentered(e.target.checked)} /> Centered</label>
+            </div>
+            <div>
+              <label><input type="checkbox" checked={config.hideable} onChange={(e) => config.setHideable(e.target.checked)} /> Hideable</label>
+            </div>
+          </div>
+        );
+      }
+
+      /**
+       * Table editor component
+       */
+      function TableEditor({ entries, onChange, onAddEntry, onGroupEntries, onRemoveEntries }) {
+        return (
+          <table>
+            <thead>
+              <tr>
+                <th>Select</th>
+                <th>ID</th>
+                <th>Label</th>
+                <th>Content</th>
+                <th>PosX (%)</th>
+                <th>PosY (%)</th>
+                <th>Width (%)</th>
+                <th>Height (%)</th>
+              </tr>
+            </thead>
+            {entries.map((entry, index) => (
+              <tbody key={index}>
+                {entry.map((entry, index) => (
+                  <TableEditorEntry key={index} {...entry} onChange={onChange} />
+                ))}
+              </tbody>
+            ))}
+            <tfoot>
+              <tr><td colSpan="8">
+                <button onClick={onAddEntry}>Add new entry</button>
+                <button onClick={onGroupEntries}>Group selected</button>
+                <button onClick={onRemoveEntries}>Remove selected</button>
+              </td></tr>
+            </tfoot>
+          </table>
+        );
+      }
+
+      /**
+       * Visual editor component
+       */
+      function VisualEditor({ entries, config }) {
+        // Raw CSS used by advanced reveal features
+        const revealCSS = `
+          /****** REVEAL FUNCTIONALITY ******/
+          /* USAGE
+
+          - Add an image with class "reveal-background":
+
+          <img class="reveal-background" src="{{Src}}">
+
+          - For each reveal element, add the following HTML:
+
+          <div class="reveal {{hint round border centered}}" style="top: {{Top}}; left: {{Left}}; height: {{Height}}; width: {{Width}};">
+            <input id="{{ID}}" type="checkbox"></input>
+            <label for="{{ID}}">{{Label}}</label>
+            <div>{{Content}}</div>
+          </div>
+
+          - A generator is available at https://docs.google.com/spreadsheets/d/10xOEICIvBzzAa8FtoUb2MYhJlJLE-AfpuX9IoUlIQ0I/edit?usp=sharing
+
+          - If not used in a reveal card type, manually add the following HTML around reveal items:
+
+          <div class="reveal-container {{revealed centered reversible hideable front/back-gradient/transparent front/back-text-white/red}}">{...}</div>
+
+          */
+
+          .reveal-container {
+              position: relative;
+              margin: 0;
+              padding: 0;
+              user-select: none;
+          }
+
+          .reveal-container .reveal-background {
+              display: block;
+              width: 100%;
+              height: auto;
+          }
+          .reveal-container img.reveal-background {
+              max-width: 100%;
+          }
+
+          .reveal-container > :not(.reveal-background):not(.reveal-sequencing):not(.reveal) {
+              display: none;
+          }
+
+          .reveal-container .reveal {
+              position: absolute;
+              margin: 0;
+              padding: 0;
+              z-index: 1;
+          }
+
+          .reveal-container .reveal > input {
+              margin-left:-99999px;
+          }
+
+          .reveal-container .reveal > input + label,
+          .reveal-container .reveal > input + label + div
+          {
+              display: flex;
+              position: absolute;
+              top: 0;
+              left: 0;
+              height: 100%;
+              width: 100%;
+              z-index: 1;
+          }
+
+          /* NOT CHECKED */
+
+          .reveal-container:not(.revealed) .reveal:not(.revealed) > input:not(:checked) + label + div,
+          .reveal-container .reveal.revealed > input:checked + label + div,
+          .reveal-container.revealed .reveal > input:checked + label + div
+          {
+              display: none;
+          }
+
+          /* CHECKED or REVEALED */
+
+          .reveal-container:not(.revealed) .reveal:not(.revealed) > input:checked + label,
+          .reveal-container .reveal.revealed > input:not(:checked) + label,
+          .reveal-container.revealed .reveal > input:not(:checked) + label
+          {
+              opacity: 0;
+          }
+
+          .reveal-container:not(.revealed) .reveal:not(.revealed) .on-reveal {
+            display: none;
+          }
+
+          /* DEFAULT LOOK */
+
+          .reveal-container .reveal * {
+              box-sizing: border-box;
+              -moz-box-sizing: border-box;
+              -webkit-box-sizing: border-box;
+          }
+
+          .reveal-container .reveal > input + label,
+          .reveal-container .reveal > input + label + div {
+              outline: none;
+              justify-content: center;
+              align-items: center;
+              text-align: center;
+              font-size: 2.5vw;
+              background: white;
+              border: none;
+          }
+
+          .reveal-container .reveal > input + label,
+          .reveal-container .reveal > input + label + div,
+          .reveal-container .reveal > input + label.text-black,
+          .reveal-container .reveal.front-text-black > input + label,
+          .reveal-container.front-text-black .reveal > input + label,
+          .reveal-container .reveal > input + label + div.text-black,
+          .reveal-container .reveal.back-text-black > input + label + div,
+          .reveal-container.back-text-black .reveal > input + label + div
+          {
+              color: black;
+              text-shadow: -1px -1px 1px white, 1px -1px 1px white, -1px 1px 1px white, 1px 1px 1px white;
+          }
+
+          /* ADDITIONAL LOOKS */
+          .reveal-container .reveal > input + label.gradient,
+          .reveal-container .reveal.front-gradient > input + label,
+          .reveal-container.front-gradient .reveal > input + label,
+          .reveal-container .reveal > input + label + div.gradient,
+          .reveal-container .reveal.back-gradient > input + label + div,
+          .reveal-container.back-gradient .reveal > input + label + div
+          {
+              background: radial-gradient(circle, white, transparent);
+              border: none;
+          }
+
+          .reveal-container .reveal > input + label.transparent,
+          .reveal-container .reveal.front-transparent > input + label,
+          .reveal-container.front-transparent .reveal > input + label,
+          .reveal-container .reveal > input + label + div.transparent,
+          .reveal-container .reveal.back-transparent > input + label + div,
+          .reveal-container.back-transparent .reveal > input + label + div
+          {
+              background: transparent;
+              border: none;
+          }
+
+          .reveal-container .reveal > input + label.text-white,
+          .reveal-container .reveal.front-text-white > input + label,
+          .reveal-container.front-text-white .reveal > input + label,
+          .reveal-container .reveal > input + label + div.text-white,
+          .reveal-container .reveal.back-text-white > input + label + div,
+          .reveal-container.back-text-white .reveal > input + label + div
+          {
+              color: white;
+              text-shadow: -1px -1px 1px black, 1px -1px 1px black, -1px 1px 1px black, 1px 1px 1px black;
+          }
+
+          .reveal-container .reveal > input + label.text-red,
+          .reveal-container .reveal.front-text-red > input + label,
+          .reveal-container.front-text-red .reveal > input + label,
+          .reveal-container .reveal > input + label + div.text-red,
+          .reveal-container .reveal.back-text-red > input + label + div,
+          .reveal-container.back-text-red .reveal > input + label + div
+          {
+              color: red;
+              text-shadow: -1px -1px 1px black, 1px -1px 1px black, -1px 1px 1px black, 1px 1px 1px black;
+          }
+
+          /* CENTERED feature */
+
+          .reveal-container .reveal.centered,
+          .reveal-container.centered .reveal:not(.not-centered)
+          {
+              transform: translateX(-50%) translateY(-50%);
+          }
+
+          /* SEQUENCING feature */
+
+          .reveal-container .reveal-sequencing {
+            background: transparent;
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 100%;
+            z-index: 1;
+            display: none;
+          }
+
+          .reveal-container:not(.revealed) .reveal-sequencing:has(~ .reveal:not(.revealed) > input:not(:checked) + label)
+          {
+            display: block;
+          }
+
+          /* REVERSIBLE feature */
+
+          .reveal-container .reveal > input:checked + label.reversible,
+          .reveal-container .reveal.reversible > input:checked + label,
+          .reveal-container.reversible .reveal > input:checked + label,
+          .reveal-container .reveal.revealed > input:not(:checked)+ label.reversible,
+          .reveal-container .reveal.revealed.reversible > input:not(:checked) + label,
+          .reveal-container.reversible .reveal.revealed > input:not(:checked) + label,
+          .reveal-container.revealed .reveal > input:not(:checked)+ label.reversible,
+          .reveal-container.revealed .reveal.reversible > input:not(:checked) + label,
+          .reveal-container.revealed.reversible .reveal > input:not(:checked) + label
+          {
+              z-index: 2;
+          }
+
+          /* HIDEABLE feature */
+
+          .reveal-container .reveal.revealed > input:not(:checked)+ label.hideable,
+          .reveal-container .reveal.revealed.hideable > input:not(:checked) + label,
+          .reveal-container.hideable .reveal.revealed > input:not(:checked) + label,
+          .reveal-container.revealed .reveal > input:not(:checked)+ label.hideable,
+          .reveal-container.revealed .reveal.hideable > input:not(:checked) + label,
+          .reveal-container.revealed.hideable .reveal > input:not(:checked) + label
+          {
+              z-index: 2;
+          }
+
+          .reveal-container .reveal.revealed > input:checked + label.hideable,
+          .reveal-container.revealed .reveal > input:checked + label.hideable,
+          .reveal-container .reveal.revealed.hideable > input:checked + label,
+          .reveal-container.revealed .reveal.hideable > input:checked + label,
+          .reveal-container.hideable .reveal.revealed > input:checked + label,
+          .reveal-container.revealed.hideable .reveal > input:checked + label
+          {
+              opacity: 0;
+          }
+        `;
+        const [revealed, setRevealed] = React.useState(false);
+
+        return (
+          <div className="card">
+            <style>{revealCSS}</style>
+            <h2>Visual Editor</h2>
+
+            <div>
+              <label><input type="checkbox" onChange={(e) => setRevealed(e.target.checked)} /> Reveal</label>
+            </div>
+            
+            <div className={`reveal-container ${revealed ? 'revealed' : ''} ${config.reversible ? 'reversible' : ''} ${config.centered ? 'centered' : ''} ${config.hideable ? 'hideable' : ''}`}>
+              <img className="reveal-background" src={config.backgroundImage} />
+              {entries.slice().reverse().map((group, groupIndex) => (
+              <React.Fragment key={groupIndex}>
+                {group.map((entry, entryIndex) => (
+                <div key={entryIndex} className="reveal" style={{ left: `${entry.posX}%`, top: `${entry.posY}%`, width: `${entry.width}%`, height: `${entry.height}%` }}>
+                  <input id={entry.id} type="checkbox" />
+                  <label htmlFor={entry.id} dangerouslySetInnerHTML={{ __html: entry.label }} />
+                  <div dangerouslySetInnerHTML={{ __html: entry.content }} />
+                </div>
+                ))}
+                {groupIndex < entries.length - 1 && <div className="reveal-sequencing"></div>}
+              </React.Fragment>
+              ))}
+            </div>
+          </div>
+        );
+      }
+
+      function MyApp() {
+        const defaultEntries = [];
+        const initEntries = [
+          [
+            { selected: false, id: "1", label: "LABEL", content: "CONTENT", posX: "50", posY: "50", width: "20", height: "10" },
+          ],
+        ];
+
+        const initBackgroundImage = "";
+        const defaultConfig = {
+          reversible: true,
+          centered: true,
+          hideable: false,
+          backgroundImage: "",
+          setReversible: (value) => setConfig((prevConfig) => ({ ...prevConfig, reversible: value })),
+          setCentered: (value) => setConfig((prevConfig) => ({ ...prevConfig, centered: value })),
+          setHideable: (value) => setConfig((prevConfig) => ({ ...prevConfig, hideable: value })),
+          setBackgroundImage: (value) => setConfig((prevConfig) => ({ ...prevConfig, backgroundImage: value }))
+        };
+
+        const [entries, setEntries] = React.useState(initEntries);
+        const [config, setConfig] = React.useState({...defaultConfig, backgroundImage: initBackgroundImage});
+
+        const handleReset = () => {
+          setEntries(defaultEntries);
+          setConfig(defaultConfig);
+        };
+
+        const handleEntryChange = (id, field, value) => {
+          setEntries(prevEntries =>
+            prevEntries.map(group =>
+              group.map(entry =>
+                entry.id === id ? { ...entry, [field]: value } : entry
+              )
+            )
+          );
+        };
+
+        const handleAddEntry = () => {
+          setEntries(prevEntries => {
+            const ids = prevEntries.flat().map(entry => parseInt(entry.id)).filter(id => !isNaN(id));
+            const newId = ids.length === 0 ? "1" : (Math.max(...ids) + 1).toString();
+            const newEntry = { selected: false, id: newId, label: "", content: "", posX: "50", posY: "50", width: "10", height: "10" };
+
+            if (prevEntries.length === 0) {
+              return [[newEntry]];
+            }
+
+            return prevEntries.map((group, index) => 
+              index === prevEntries.length - 1 ? [...group, newEntry] : group
+            );
+          });
+        };
+
+        const handleGroupEntries = () => {
+          setEntries(prevEntries => {
+            const result = [];
+            let prevSelected = undefined;
+            let prevGroupId = undefined;
+
+            prevEntries.forEach((group, groupId) => {
+              group.forEach(entry => {
+                if (entry.selected !== prevSelected || (!entry.selected && groupId !== prevGroupId)) {
+                  result.push([]);
+                  prevSelected = entry.selected;
+                  prevGroupId = groupId;
+                }
+                result[result.length - 1].push({...entry, selected: false});
+              });
+            });
+
+            return result;
+          });
+        };
+
+        const handleRemoveEntries = () => {
+          setEntries(prevEntries =>
+            prevEntries.map(group =>
+              group.filter(entry => !entry.selected)
+            ).filter(group => group.length > 0)
+          );
+        };
+
+        return (
+          <>
+            <h1>Anki - Card-reveal Editor</h1>
+            <Toolbar onReset={handleReset} />
+            <TableEditor entries={entries} onChange={handleEntryChange} onAddEntry={handleAddEntry} onGroupEntries={handleGroupEntries} onRemoveEntries={handleRemoveEntries} />
+            <Config config={config} />
+            <VisualEditor entries={entries} config={config} />
+          </>
+        );
+      }
+
+      const container = document.getElementById('root');
+      const root = ReactDOM.createRoot(container);
+      root.render(<MyApp />);
+
+    </script>
+    <!--
+      Note: this page is a great way to try React but it's not suitable for production.
+      It slowly compiles JSX with Babel in the browser and uses a large development build of React.
+
+      Read this page for starting a new React project with JSX:
+      https://react.dev/learn/start-a-new-react-project
+
+      Read this page for adding React with JSX to an existing project:
+      https://react.dev/learn/add-react-to-an-existing-project
+    -->
+  </body>
+</html>

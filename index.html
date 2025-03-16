@@ -94,7 +94,7 @@
       /**
        * Table editor component
        */
-      function TableEditor({ entries, onChange, onAddEntry, onGroupEntries, onRemoveEntries }) {
+      function TableEditor({ entries, onChange, onAddEntry, onGroupEntries, onIsolateEntries, onRemoveEntries }) {
         const [selectAllChecked, setSelectAllChecked] = React.useState(false);
         const [selectAllIndeterminate, setSelectAllIndeterminate] = React.useState(false);
 
@@ -158,6 +158,7 @@
                 <tr><td colSpan="8">
                   <span>{entries.flat().filter(entry => entry.selected).length} rows selected - </span>
                   <button onClick={onGroupEntries} disabled={entries.flat().filter(entry => entry.selected).length === 0}>Group</button>
+                  <button onClick={onIsolateEntries} disabled={entries.flat().filter(entry => entry.selected).length === 0}>Isolate</button>
                   <button onClick={onRemoveEntries} disabled={entries.flat().filter(entry => entry.selected).length === 0}>Remove</button>
 
                   <button onClick={onAddEntry}>Add</button>
@@ -476,7 +477,7 @@
 
         const handleAddEntry = () => {
           setEntries(prevEntries => {
-            const newEntry = { selected: false, label: "", content: "", posX: "50", posY: "50", width: "10", height: "10" };
+            const newEntry = { selected: true, label: "", content: "", posX: "50", posY: "50", width: "10", height: "10" };
 
             if (prevEntries.length === 0) {
               return [[newEntry]];
@@ -501,7 +502,28 @@
                   prevSelected = entry.selected;
                   prevGroupId = groupId;
                 }
-                result[result.length - 1].push({...entry, selected: false});
+                result[result.length - 1].push({...entry});
+              });
+            });
+
+            return result;
+          });
+        };
+
+        const handleIsolateEntries = () => {
+          setEntries(prevEntries => {
+            const result = [];
+            let prevSelected = undefined;
+            let prevGroupId = undefined;
+
+            prevEntries.forEach((group, groupId) => {
+              group.forEach(entry => {
+                if (entry.selected || (!entry.selected && prevSelected) || groupId !== prevGroupId) {
+                  result.push([]);
+                  prevSelected = entry.selected;
+                  prevGroupId = groupId;
+                }
+                result[result.length - 1].push({...entry});
               });
             });
 
@@ -521,7 +543,7 @@
           <>
             <h1>Anki - Card-reveal Editor</h1>
             <Toolbar onReset={handleReset} />
-            <TableEditor entries={entries} onChange={handleEntryChange} onAddEntry={handleAddEntry} onGroupEntries={handleGroupEntries} onRemoveEntries={handleRemoveEntries} />
+            <TableEditor entries={entries} onChange={handleEntryChange} onAddEntry={handleAddEntry} onGroupEntries={handleGroupEntries} onIsolateEntries={handleIsolateEntries} onRemoveEntries={handleRemoveEntries} />
             <Config config={config} />
             <VisualEditor entries={entries} config={config} />
           </>

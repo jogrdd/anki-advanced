@@ -196,7 +196,7 @@
       /**
        * Visual editor component
        */
-      function VisualEditor({ entries, config, htmlContent }) {
+      function VisualEditor({ entries, config, htmlContent, onEntryUpdate }) {
         // Raw CSS used by advanced reveal features
         const revealCSS = `
           /****** REVEAL FUNCTIONALITY ******/
@@ -433,6 +433,30 @@
         const handleMouseEnter = (id) => setHighlightedId(id);
         const handleMouseLeave = () => setHighlightedId(null);
 
+        const handleDragStart = (e, id) => {
+          console.log('DRAG', id);
+          e.dataTransfer.setData("entryId", id);
+        };
+
+        const handleDrop = (e) => {
+          e.preventDefault();
+          const entryId = e.dataTransfer.getData("entryId");
+          console.log('DROP', entryId);
+          const container = e.currentTarget;
+          const rect = container.getBoundingClientRect();
+
+          const posX = ((e.clientX - rect.left) / rect.width) * 100;
+          const posY = ((e.clientY - rect.top) / rect.height) * 100;
+
+          onEntryUpdate(entryId, { posX: posX.toFixed(2), posY: posY.toFixed(2) });
+        };
+
+        const handleDragOver = (e) => {
+          const entryId = e.dataTransfer.getData("entryId");
+          console.log('DRAG-OVER', entryId);
+          e.preventDefault();
+        };
+
         return (
           <div id="visual-editor">
             <style>{revealCSS}</style>
@@ -442,18 +466,24 @@
               <label><input type="checkbox" onChange={(e) => setRevealed(e.target.checked)} /> Reveal</label>
             </div>
             
-            <div className={`reveal-container ${revealed ? 'revealed' : ''} ${generateOptionsString(config)}`}>
+            <div
+              className={`reveal-container ${revealed ? 'revealed' : ''} ${generateOptionsString(config)}`}
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+            >
               <img className="reveal-background" src={config.backgroundImage} />
               {entries.slice().reverse().map((group, groupIndex) => (
               <React.Fragment key={groupIndex}>
                 {group.slice().reverse().map((entry, entryIndex) => {
-                  const id = `${groupIndex}-${entryIndex}`;
+                  const id = `${entries.length - groupIndex - 1}-${group.length - entryIndex - 1}`;
                   const isHighlighted = highlightedId === id || entry.selected || entry.highlighted;
                   return (
                     <div
                       key={entryIndex}
                       className={`reveal ${isHighlighted ? 'highlight' : ''}`}
                       style={{ left: `${entry.posX}%`, top: `${entry.posY}%`, width: `${entry.width}%`, height: `${entry.height}%` }}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, id)}
                       onMouseEnter={() => handleMouseEnter(id)}
                       onMouseLeave={handleMouseLeave}
                     >
@@ -534,11 +564,15 @@
         };
 
         const handleEntryChange = (id, field, value) => {
+          handleEntryUpdate(id, {[field]: value});
+        };
+
+        const handleEntryUpdate = (id, updatedFields) => {
           setEntries(prevEntries =>
             prevEntries.map((group, groupIndex) =>
               group.map((entry, entryIndex) => {
                 const entryId = `${groupIndex}-${entryIndex}`;
-                return entryId === id ? { ...entry, [field]: value } : entry;
+                return entryId === id ? { ...entry, ...updatedFields } : entry;
               })
             )
           );
@@ -686,7 +720,7 @@
             <Toolbar onReset={handleReset} onExport={handleExport} />
             <TableEditor entries={entries} onChange={handleEntryChange} onAddEntry={handleAddEntry} onGroupEntries={handleGroupEntries} onIsolateEntries={handleIsolateEntries} onMoveUp={handleMoveUp} onMoveDown={handleMoveDown} onRemoveEntries={handleRemoveEntries} />
             <Config config={config} />
-            <VisualEditor entries={entries} config={config} htmlContent={htmlContent} />
+            <VisualEditor entries={entries} config={config} htmlContent={htmlContent} onEntryUpdate={handleEntryUpdate} />
             <HtmlEditor config={config} htmlContent={htmlContent} />
           </>
         );

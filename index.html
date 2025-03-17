@@ -429,7 +429,7 @@
               <img className="reveal-background" src={config.backgroundImage} />
               {entries.slice().reverse().map((group, groupIndex) => (
               <React.Fragment key={groupIndex}>
-                {group.map((entry, entryIndex) => {
+                {group.slice().reverse().map((entry, entryIndex) => {
                   const id = `${groupIndex}-${entryIndex}`;
                   return (
                     <div key={entryIndex} className="reveal" style={{ left: `${entry.posX}%`, top: `${entry.posY}%`, width: `${entry.width}%`, height: `${entry.height}%` }}>

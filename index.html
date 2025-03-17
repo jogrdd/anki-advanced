@@ -18,6 +18,11 @@
       tbody:last-of-type {
         border-bottom: none;
       }
+      /* Highlight styles */
+      .reveal.highlight {
+        border: 2px solid blue;
+        box-sizing: border-box;
+      }
     </style>
   </head>
   <body>
@@ -40,9 +45,9 @@
       /**
        * Table editor entry component
        */
-      function TableEditorEntry({ id, selected, label, content, posX, posY, width, height, onChange }) {
+      function TableEditorEntry({ id, selected, highlighted, label, content, posX, posY, width, height, onChange, onHighlight }) {
         return (
-          <tr>
+          <tr onMouseEnter={() => onHighlight(true)} onMouseLeave={() => onHighlight(false)}>
             <td><input type="checkbox" checked={selected} onChange={(e) => onChange(id, 'selected', e.target.checked)} /></td>
             <td><input type="text" value={label} onChange={(e) => onChange(id, 'label', e.target.value)} /></td>
             <td><input type="text" value={content} onChange={(e) => onChange(id, 'content', e.target.value)} /></td>
@@ -109,6 +114,8 @@
           });
         };
 
+        const handleHighlight = (id, value) => onChange(id, 'highlighted', value);
+
         React.useEffect(() => {
           const totalEntries = entries.flat().length;
           const selectedEntries = entries.flat().filter(entry => entry.selected).length;
@@ -150,7 +157,13 @@
               {entries.map((entry, groupIndex) => (
                 <tbody key={groupIndex}>
                   {entry.map((entry, index) => (
-                    <TableEditorEntry key={index} id={`${groupIndex}-${index}`} {...entry} onChange={onChange} />
+                    <TableEditorEntry
+                      key={index}
+                      id={`${groupIndex}-${index}`}
+                      {...entry}
+                      onChange={onChange}
+                      onHighlight={(value) => handleHighlight(`${groupIndex}-${index}`, value)}
+                    />
                   ))}
                 </tbody>
               ))}
@@ -415,6 +428,10 @@
           }
         `;
         const [revealed, setRevealed] = React.useState(false);
+        const [highlightedId, setHighlightedId] = React.useState(null);
+
+        const handleMouseEnter = (id) => setHighlightedId(id);
+        const handleMouseLeave = () => setHighlightedId(null);
 
         return (
           <div id="visual-editor">
@@ -431,8 +448,15 @@
               <React.Fragment key={groupIndex}>
                 {group.slice().reverse().map((entry, entryIndex) => {
                   const id = `${groupIndex}-${entryIndex}`;
+                  const isHighlighted = highlightedId === id || entry.selected || entry.highlighted;
                   return (
-                    <div key={entryIndex} className="reveal" style={{ left: `${entry.posX}%`, top: `${entry.posY}%`, width: `${entry.width}%`, height: `${entry.height}%` }}>
+                    <div
+                      key={entryIndex}
+                      className={`reveal ${isHighlighted ? 'highlight' : ''}`}
+                      style={{ left: `${entry.posX}%`, top: `${entry.posY}%`, width: `${entry.width}%`, height: `${entry.height}%` }}
+                      onMouseEnter={() => handleMouseEnter(id)}
+                      onMouseLeave={handleMouseLeave}
+                    >
                       <input id={id} type="checkbox" />
                       <label htmlFor={id} dangerouslySetInnerHTML={{ __html: entry.label }} />
                       <div dangerouslySetInnerHTML={{ __html: entry.content }} />
@@ -468,7 +492,7 @@
         const defaultEntries = [];
         const initEntries = [
           [
-            { selected: false, id: "1", label: "LABEL", content: "CONTENT", posX: "50", posY: "50", width: "20", height: "10" },
+            { selected: false, highlighted: false, label: "LABEL", content: "CONTENT", posX: "50", posY: "50", width: "20", height: "10" },
           ],
         ];
 
@@ -492,7 +516,7 @@
         React.useEffect(() => {
           const revealContainer = document.querySelector('#visual-editor .reveal-container');
           if (revealContainer) {
-            setHtmlContent(revealContainer.innerHTML.replace(/(\<div\s+[^>]*class="reveal(-sequencing)?"[^>]*>)/g, '\n\n$1'));
+            setHtmlContent(revealContainer.innerHTML.replace(/(\<div\s+[^>]*class="([^"]*\s+)?reveal(-sequencing)?(\s+[^"]*)?"[^>]*>)/g, '\n\n$1'));
           }
         }, [entries, config]);
 
@@ -522,7 +546,7 @@
 
         const handleAddEntry = () => {
           setEntries(prevEntries => {
-            const newEntry = { selected: true, label: "", content: "", posX: "50", posY: "50", width: "10", height: "10" };
+            const newEntry = { selected: true, highlighted: false, label: "", content: "", posX: "50", posY: "50", width: "10", height: "10" };
 
             if (prevEntries.length === 0) {
               return [[newEntry]];

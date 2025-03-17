@@ -85,7 +85,7 @@
               <label><input type="checkbox" checked={config.centered} onChange={(e) => config.setCentered(e.target.checked)} /> Centered</label>
             </div>
             <div>
-              <label><input type="checkbox" checked={config.hideable} onChange={(e) => config.setHideable(e.target.checked)} /> Hideable</label>
+              <label><input type="checkbox" checked={config.hideable} onChange={(e) => config.setHideable(e.target.checked)} /> Hideable</label> - <span>once revealed, content can be hidden</span>
             </div>
           </div>
         );
@@ -443,14 +443,25 @@
               </React.Fragment>
               ))}
             </div>
-
-            <h2>ANKI Card - HTML Output</h2>
-            <label>Options:</label>
-            <input type="text" value={generateOptionsString(config)} readOnly style={{ width: '100%' }} />
-            <label>Back:</label>
-            <textarea style={{ width: '100%', height: '200px' }} value={htmlContent} readOnly></textarea>
           </div>
         );
+      }
+
+      /**
+       * HTML editor component
+       */
+      function HtmlEditor({ config, htmlContent }) {
+        return (
+          <div id="html-editor">
+            <h2>ANKI Card - HTML Output</h2>
+
+            <label>Options:</label>
+            <input type="text" value={generateOptionsString(config)} style={{ width: '100%' }} disabled />
+            
+            <label>Back:</label>
+            <textarea style={{ width: '100%', height: '200px' }} value={htmlContent} disabled></textarea>
+          </div>
+        )
       }
 
       function MyApp() {
@@ -483,7 +494,7 @@
           if (revealContainer) {
             setHtmlContent(revealContainer.innerHTML.replace(/(\<div\s+[^>]*class="reveal(-sequencing)?"[^>]*>)/g, '\n\n$1'));
           }
-        }, [entries]);
+        }, [entries, config]);
 
         const handleReset = () => {
           setEntries(defaultEntries);
@@ -652,6 +663,7 @@
             <TableEditor entries={entries} onChange={handleEntryChange} onAddEntry={handleAddEntry} onGroupEntries={handleGroupEntries} onIsolateEntries={handleIsolateEntries} onMoveUp={handleMoveUp} onMoveDown={handleMoveDown} onRemoveEntries={handleRemoveEntries} />
             <Config config={config} />
             <VisualEditor entries={entries} config={config} htmlContent={htmlContent} />
+            <HtmlEditor config={config} htmlContent={htmlContent} />
           </>
         );
       }

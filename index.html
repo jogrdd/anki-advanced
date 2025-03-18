@@ -20,12 +20,14 @@
       }
       /* Highlight styles */
       .reveal.highlight {
-        border: 2px solid blue;
+        border: 5px solid blue;
         box-sizing: border-box;
       }
-      .reveal.highlight * {
-        cursor: move;
-      }
+      .reveal.highlight.draggable * { cursor: move; }
+      .reveal.highlight.resizable-n, .reveal.highlight.resizable-s { cursor: ns-resize; }
+      .reveal.highlight.resizable-e, .reveal.highlight.resizable-w { cursor: ew-resize; }
+      .reveal.highlight.resizable-ne, .reveal.highlight.resizable-sw { cursor: nesw-resize; }
+      .reveal.highlight.resizable-nw, .reveal.highlight.resizable-se { cursor: nwse-resize; }
     </style>
   </head>
   <body>
@@ -431,23 +433,60 @@
           }
         `;
         const [revealed, setRevealed] = React.useState(false);
-        const [highlightedId, setHighlightedId] = React.useState(null);
+        const [highlightedElement, setHighlightedElement] = React.useState(null);
         const [draggedElement, setDraggedElement] = React.useState(null);
         const [snapToGrid, setSnapToGrid] = React.useState({gridSize: 1, decimals: 0});
-
-        const handleMouseEnter = (id) => setHighlightedId(id);
-        const handleMouseLeave = () => setHighlightedId(null);
+        const [cursorClass, setCursorClass] = React.useState(null);
 
         const clamp = (x, min, max) => Math.max(0, Math.min(100, x));
 
         const getMousePosition = (e, ref) => {
           const rect = ref.getBoundingClientRect();
+          const distances = {
+            left: e.clientX - rect.left,
+            right: rect.right - e.clientX,
+            top: e.clientY - rect.top,
+            bottom: rect.bottom - e.clientY,
+          };
           return {
             e,
             ref,
-            x: clamp((e.clientX - rect.x)/rect.width*100, 0, 100),
-            y: clamp((e.clientY - rect.y)/rect.height*100, 0, 100)
+            x: clamp(distances.left/rect.width*100, 0, 100),
+            y: clamp(distances.top/rect.height*100, 0, 100),
+            ...distances,
           };
+        };
+
+        const updateCursorClass = (e, highlightedElement) => {
+          const mouseElementPosition = getMousePosition(e, highlightedElement.target);
+          
+          const border = Object.entries({
+            n: mouseElementPosition.top <= 0,
+            s: mouseElementPosition.bottom <= 0,
+            e: mouseElementPosition.right <= 0,
+            w: mouseElementPosition.left <= 0,
+          }).filter(b => b[1]).map(b => b[0]).join('');
+
+          setCursorClass(border.length ? 'resizable-' + border : 'draggable');
+        };
+
+        const handleMouseEnter = (e, entryId, entry, ref) => {
+          if (highlightedElement) return; // Prevent override
+
+          const position = { x: parseFloat(entry.posX), y: parseFloat(entry.posY) };
+          const size = { width: parseFloat(entry.width), height: parseFloat(entry.height) };
+          const newHighlightedElement = { entryId, entry, target: e.target, ref, position, size };
+
+          setHighlightedElement(() => newHighlightedElement);
+          console.log('ENTER', newHighlightedElement);
+
+          updateCursorClass(e, newHighlightedElement);
+        };
+
+        const handleMouseLeave = () => {
+          console.log('LEAVE');
+          setHighlightedElement(null);
+          setCursorClass(null);
         };
 
         const handleMouseDown = (e, entryId, entry, ref) => {
@@ -458,6 +497,25 @@
           
           const position = { x: parseFloat(entry.posX), y: parseFloat(entry.posY) };
           setDraggedElement({entryId, entry, ref, position, mousePosition});
+        };
+
+        const handleMouseMove = (e) => {
+          if (highlightedElement) {
+            updateCursorClass(e, highlightedElement);
+            console.log('MOUSE-MOVE-HIGHLIGHTED');
+          }
+
+          if (draggedElement) {
+            const mousePosition = getMousePosition(e, draggedElement.ref);
+            const diff = { x: mousePosition.x - draggedElement.mousePosition.x, y: mousePosition.y - draggedElement.mousePosition.y };
+            const newPosition = {
+              x: roundToGrid(draggedElement.position.x + diff.x),
+              y: roundToGrid(draggedElement.position.y + diff.y),
+            };
+            console.log('MOUSE-MOVE', { draggedElement, mousePosition, diff, newPosition });
+
+            onEntryUpdate(draggedElement.entryId, { posX: newPosition.x.toFixed(snapToGrid.decimals), posY: newPosition.y.toFixed(snapToGrid.decimals) });
+          }
         };
 
         const handleMouseUp = (e) => {
@@ -477,21 +535,6 @@
 
         const roundToGrid = (value) => {
           return Math.round(value/snapToGrid.gridSize)*snapToGrid.gridSize;
-        };
-
-        const handleMouseMove = (e) => {
-          if (!draggedElement) return;
-
-          const mousePosition = getMousePosition(e, draggedElement.ref);
-          const diff = { x: mousePosition.x - draggedElement.mousePosition.x, y: mousePosition.y - draggedElement.mousePosition.y };
-          const newPosition = {
-            x: roundToGrid(draggedElement.position.x + diff.x),
-            y: roundToGrid(draggedElement.position.y + diff.y),
-          };
-          console.log('MOUSE-MOVE', { draggedElement, mousePosition, diff, newPosition });
-
-          onEntryUpdate(draggedElement.entryId, { posX: newPosition.x.toFixed(snapToGrid.decimals), posY: newPosition.y.toFixed(snapToGrid.decimals) });
-          return;
         };
 
         return (
@@ -522,14 +565,14 @@
               <React.Fragment key={groupIndex}>
                 {group.slice().reverse().map((entry, entryIndex) => {
                   const id = `${entries.length - groupIndex - 1}-${group.length - entryIndex - 1}`;
-                  const isHighlighted = highlightedId === id || entry.selected || entry.highlighted;
+                  const isHighlighted = (highlightedElement && highlightedElement.entryId === id) || entry.selected || entry.highlighted;
                   return (
                     <div
                       key={entryIndex}
-                      className={`reveal ${isHighlighted ? 'highlight' : ''}`}
+                      className={`reveal ${isHighlighted ? 'highlight' : ''} ${cursorClass ? cursorClass : ''}`}
                       style={{ left: `${entry.posX}%`, top: `${entry.posY}%`, width: `${entry.width}%`, height: `${entry.height}%` }}
                       onMouseDown={(e) => handleMouseDown(e, id, entry, e.currentTarget.parentElement)}
-                      onMouseEnter={() => handleMouseEnter(id)}
+                      onMouseEnter={(e) => handleMouseEnter(e, id, entry, e.currentTarget.parentElement)}
                       onMouseLeave={handleMouseLeave}
                     >
                       <input id={id} type="checkbox" />

@@ -464,23 +464,17 @@
             e: mouseElementPosition.right <= 0,
             w: mouseElementPosition.left <= 0,
           }).filter(b => b[1]).map(b => b[0]).join('');
-          console.log({mouseElementPosition, border})
 
           return border.length ? 'resize-' + border : 'drag';
         };
 
         const handleMouseEnter = (e, entryId, entry, ref) => {
-          if (highlightedElement) return; // Prevent override
-
           const newHighlightedElement = { entryId, entry, target: e.target, ref, position: null, size: null, capability: null };
-          console.log('ENTER', newHighlightedElement);
-
-          setHighlightedElement(() => newHighlightedElement);
+          setHighlightedElement(prevHighlightedElement => prevHighlightedElement?.action ? prevHighlightedElement : newHighlightedElement); // Handle previous helement here
         };
 
         const handleMouseLeave = () => {
-          console.log('LEAVE');
-          setHighlightedElement(null);
+          setHighlightedElement(prevHighlightedElement => prevHighlightedElement?.action ? prevHighlightedElement : null);
         };
 
         const handleMouseDown = (e, entryId, entry, ref) => {
@@ -489,18 +483,15 @@
           const position = { x: parseFloat(entry.posX), y: parseFloat(entry.posY) };
           const size = { width: parseFloat(entry.width), height: parseFloat(entry.height) };
           const capability = highlightedElement.capability;
-          console.log('MOUSE-DOWN', {position, size, capability});
           
           if (capability == 'drag' && !highlightedElement.action) {
             const newAction = { action: 'drag', position, size, mousePosition: getMousePosition(e, ref) };
             setHighlightedElement(prevHighlightedElement => prevHighlightedElement ? {...prevHighlightedElement, ...newAction} : null); // TODO: No need for entryId and entry...
-            console.log('MOUSE-DOWN-DRAG', newAction);
           }
 
           if (capability.startsWith('resize-')) {
             const newAction = { action: 'resize', position, size, direction: capability.split('-').pop(), mousePosition: getMousePosition(e, ref) };
             setHighlightedElement(prevHighlightedElement => prevHighlightedElement ? {...prevHighlightedElement, ...newAction} : null); // TODO: No need for entryId and entry...
-            console.log('MOUSE-DOWN-RESIZE', newAction);
           }
         };
 
@@ -510,7 +501,6 @@
           // Update capability
           const capability = getElementCapability(e, highlightedElement.target);
           setHighlightedElement(prevHighlightedElement => prevHighlightedElement ? {...prevHighlightedElement, capability} : null);
-          console.log('MOUSE-MOVE', {highlightedElement});
           
           if (highlightedElement.action === 'drag') {
             const mousePosition = getMousePosition(e, highlightedElement.ref);
@@ -519,7 +509,6 @@
               x: roundToGrid(highlightedElement.position.x + diff.x),
               y: roundToGrid(highlightedElement.position.y + diff.y),
             };
-            console.log('MOUSE-MOVE', { highlightedElement, mousePosition, diff, newPosition });
 
             onEntryUpdate(highlightedElement.entryId, { posX: newPosition.x.toFixed(snapToGrid.decimals), posY: newPosition.y.toFixed(snapToGrid.decimals) });
           }
@@ -535,7 +524,7 @@
             if (direction.includes('n')) {
               newSize.height = roundToGrid(highlightedElement.size.height - diff.y * resizeMultiplier); // Improve roundToGrid
               if (!config.centered) {
-                newPosition.y = roundToGrid(highlightedElement.position.y + diff.y);
+                newPosition.y = roundToGrid(highlightedElement.position.y + Math.min(diff.y, highlightedElement.size.height));
               }
             }
             if (direction.includes('s')) {
@@ -547,16 +536,15 @@
             if (direction.includes('w')) {
               newSize.width = roundToGrid(highlightedElement.size.width - diff.x * resizeMultiplier); // TODO: Improve roundToGrid
               if (!config.centered) {
-                newPosition.x = roundToGrid(highlightedElement.position.x + diff.x);
+                newPosition.x = roundToGrid(highlightedElement.position.x + Math.min(diff.x, highlightedElement.size.width));
               }
             }
 
-            console.log('MOUSE-MOVE-RESIZE', { highlightedElement, mousePosition, diff, newPosition, newSize });
             onEntryUpdate(highlightedElement.entryId, {
               posX: newPosition.x.toFixed(snapToGrid.decimals),
               posY: newPosition.y.toFixed(snapToGrid.decimals),
-              width: newSize.width.toFixed(snapToGrid.decimals),
-              height: newSize.height.toFixed(snapToGrid.decimals),
+              width: Math.max(0, newSize.width).toFixed(snapToGrid.decimals),
+              height: Math.max(0, newSize.height).toFixed(snapToGrid.decimals),
             });
           }
         };
@@ -565,7 +553,6 @@
           if (!highlightedElement || !highlightedElement.action) return;
 
           const mousePosition = getMousePosition(e, highlightedElement.ref);
-          console.log('MOUSE-UP', {highlightedElement, mousePosition});
 
           setHighlightedElement(prevHighlightedElement => prevHighlightedElement ? {...prevHighlightedElement, action: null, position: null, size: null} : null);
         };
@@ -664,7 +651,25 @@
           hideable: false,
           backgroundImage: "",
           setReversible: (value) => setConfig((prevConfig) => ({ ...prevConfig, reversible: value })),
-          setCentered: (value) => setConfig((prevConfig) => ({ ...prevConfig, centered: value })),
+          setCentered: (value) => {
+            const factor = value ? 1 : -1;
+            const trailingZeros = /\.?0+$/;
+            setConfig((prevConfig) => {
+              setEntries((prevEntries) =>
+                prevEntries.map((group) =>
+                  group.map((entry) => {
+                    const adjustments = Object.assign({},
+                      ...Object.entries({posX: entry.width, posY: entry.height}).map(v => ({
+                        [v[0]]: (parseFloat(entry[v[0]]) + factor * parseFloat(v[1])/2).toFixed(2).replace(trailingZeros, '')
+                      }))
+                    )
+                    return { ...entry, ...adjustments };
+                  })
+                )
+              );
+              return { ...prevConfig, centered: value };
+            });
+          },
           setHideable: (value) => setConfig((prevConfig) => ({ ...prevConfig, hideable: value })),
           setBackgroundImage: (value) => setConfig((prevConfig) => ({ ...prevConfig, backgroundImage: value }))
         };
@@ -711,7 +716,8 @@
 
         const handleAddEntry = () => {
           setEntries(prevEntries => {
-            const newEntry = { selected: true, highlighted: false, label: "", content: "", posX: "50", posY: "50", width: "10", height: "10" };
+            const newPosition = config.centered ? "50" : 45;
+            const newEntry = { selected: true, highlighted: false, label: "", content: "", posX: newPosition, posY: newPosition, width: "10", height: "10" };
 
             if (prevEntries.length === 0) {
               return [[newEntry]];

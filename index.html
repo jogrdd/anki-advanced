@@ -472,9 +472,7 @@
         const handleMouseEnter = (e, entryId, entry, ref) => {
           if (highlightedElement) return; // Prevent override
 
-          const position = { x: parseFloat(entry.posX), y: parseFloat(entry.posY) };
-          const size = { width: parseFloat(entry.width), height: parseFloat(entry.height) };
-          const newHighlightedElement = { entryId, entry, target: e.target, ref, position, size, capability: null };
+          const newHighlightedElement = { entryId, entry, target: e.target, ref, position: null, size: null, capability: null };
           console.log('ENTER', newHighlightedElement);
 
           setHighlightedElement(() => newHighlightedElement);
@@ -488,16 +486,21 @@
         const handleMouseDown = (e, entryId, entry, ref) => {
           if (!highlightedElement) return;
 
-          //const capability = getElementCapability(e, highlightedElement.target);
-          //setHighlightedElement(prevHighlightedElement => ({prevHighlightedElement, action: capability}));
-
+          const position = { x: parseFloat(entry.posX), y: parseFloat(entry.posY) };
+          const size = { width: parseFloat(entry.width), height: parseFloat(entry.height) };
           const capability = highlightedElement.capability;
-          console.log('MOUSE-DOWN', {capability});
+          console.log('MOUSE-DOWN', {position, size, capability});
           
           if (capability == 'drag' && !highlightedElement.action) {
-            const newAction = { action: 'drag', mousePosition: getMousePosition(e, ref) };
+            const newAction = { action: 'drag', position, size, mousePosition: getMousePosition(e, ref) };
             setHighlightedElement(prevHighlightedElement => prevHighlightedElement ? {...prevHighlightedElement, ...newAction} : null); // TODO: No need for entryId and entry...
             console.log('MOUSE-DOWN-DRAG', newAction);
+          }
+
+          if (capability.startsWith('resize-')) {
+            const newAction = { action: 'resize', position, size, direction: capability.split('-').pop(), mousePosition: getMousePosition(e, ref) };
+            setHighlightedElement(prevHighlightedElement => prevHighlightedElement ? {...prevHighlightedElement, ...newAction} : null); // TODO: No need for entryId and entry...
+            console.log('MOUSE-DOWN-RESIZE', newAction);
           }
         };
 
@@ -520,6 +523,42 @@
 
             onEntryUpdate(highlightedElement.entryId, { posX: newPosition.x.toFixed(snapToGrid.decimals), posY: newPosition.y.toFixed(snapToGrid.decimals) });
           }
+
+          if (highlightedElement.action === 'resize') {
+            const mousePosition = getMousePosition(e, highlightedElement.ref);
+            const diff = { x: mousePosition.x - highlightedElement.mousePosition.x, y: mousePosition.y - highlightedElement.mousePosition.y };
+            const newPosition = {...highlightedElement.position};
+            const newSize = {...highlightedElement.size};
+            const resizeMultiplier = config.centered ? 2 : 1;
+            const direction = highlightedElement.direction;
+
+            if (direction.includes('n')) {
+              newSize.height = roundToGrid(highlightedElement.size.height - diff.y * resizeMultiplier); // Improve roundToGrid
+              if (!config.centered) {
+                newPosition.y = roundToGrid(highlightedElement.position.y + diff.y);
+              }
+            }
+            if (direction.includes('s')) {
+              newSize.height = roundToGrid(highlightedElement.size.height + diff.y * resizeMultiplier); // Improve roundToGrid
+            }
+            if (direction.includes('e')) {
+              newSize.width = roundToGrid(highlightedElement.size.width + diff.x * resizeMultiplier); // TODO: Improve roundToGrid
+            }
+            if (direction.includes('w')) {
+              newSize.width = roundToGrid(highlightedElement.size.width - diff.x * resizeMultiplier); // TODO: Improve roundToGrid
+              if (!config.centered) {
+                newPosition.x = roundToGrid(highlightedElement.position.x + diff.x);
+              }
+            }
+
+            console.log('MOUSE-MOVE-RESIZE', { highlightedElement, mousePosition, diff, newPosition, newSize });
+            onEntryUpdate(highlightedElement.entryId, {
+              posX: newPosition.x.toFixed(snapToGrid.decimals),
+              posY: newPosition.y.toFixed(snapToGrid.decimals),
+              width: newSize.width.toFixed(snapToGrid.decimals),
+              height: newSize.height.toFixed(snapToGrid.decimals),
+            });
+          }
         };
 
         const handleMouseUp = (e) => {
@@ -528,7 +567,7 @@
           const mousePosition = getMousePosition(e, highlightedElement.ref);
           console.log('MOUSE-UP', {highlightedElement, mousePosition});
 
-          setHighlightedElement(prevHighlightedElement => prevHighlightedElement ? {...prevHighlightedElement, action: null} : null);
+          setHighlightedElement(prevHighlightedElement => prevHighlightedElement ? {...prevHighlightedElement, action: null, position: null, size: null} : null);
         };
 
         const handleSnapToGrid = (value) => {

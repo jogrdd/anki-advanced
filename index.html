@@ -429,32 +429,55 @@
         `;
         const [revealed, setRevealed] = React.useState(false);
         const [highlightedId, setHighlightedId] = React.useState(null);
+        const [draggedElement, setDraggedElement] = React.useState(null);
 
         const handleMouseEnter = (id) => setHighlightedId(id);
         const handleMouseLeave = () => setHighlightedId(null);
 
-        const handleDragStart = (e, id) => {
-          console.log('DRAG', id);
-          e.dataTransfer.setData("entryId", id);
+        const clamp = (x, min, max) => Math.max(0, Math.min(100, x));
+
+        const getMousePosition = (e, ref) => {
+          const rect = ref.getBoundingClientRect();
+          return {
+            e,
+            ref,
+            x: clamp((e.clientX - rect.x)/rect.width*100, 0, 100),
+            y: clamp((e.clientY - rect.y)/rect.height*100, 0, 100)
+          };
         };
 
-        const handleDrop = (e) => {
-          e.preventDefault();
-          const entryId = e.dataTransfer.getData("entryId");
-          console.log('DROP', entryId);
-          const container = e.currentTarget;
-          const rect = container.getBoundingClientRect();
+        const handleMouseDown = (e, entryId, entry, ref) => {
+          if (draggedElement) return;
 
-          const posX = ((e.clientX - rect.left) / rect.width) * 100;
-          const posY = ((e.clientY - rect.top) / rect.height) * 100;
-
-          onEntryUpdate(entryId, { posX: posX.toFixed(2), posY: posY.toFixed(2) });
+          const mousePosition = getMousePosition(e, ref);
+          console.log('MOUSE-DOWN', {entry, mousePosition});
+          
+          const position = { x: parseFloat(entry.posX), y: parseFloat(entry.posY) };
+          setDraggedElement({entryId, entry, ref, position, mousePosition});
         };
 
-        const handleDragOver = (e) => {
-          const entryId = e.dataTransfer.getData("entryId");
-          console.log('DRAG-OVER', entryId);
-          e.preventDefault();
+        const handleMouseUp = (e) => {
+          if (!draggedElement) return;
+
+          const mousePosition = getMousePosition(e, draggedElement.ref);
+          console.log('MOUSE-UP', {draggedElement, mousePosition});
+
+          setDraggedElement(null);
+        };
+
+        const handleMouseMove = (e) => {
+          if (!draggedElement) return;
+
+          const mousePosition = getMousePosition(e, draggedElement.ref);
+          const diff = { x: mousePosition.x - draggedElement.mousePosition.x, y: mousePosition.y - draggedElement.mousePosition.y };
+          const newPosition = {
+            x: draggedElement.position.x + diff.x,
+            y: draggedElement.position.y + diff.y,
+          }
+          console.log('MOUSE-MOVE', {draggedElement, mousePosition, diff, newPosition});
+
+          onEntryUpdate(draggedElement.entryId, { posX: newPosition.x.toFixed(2), posY: newPosition.y.toFixed(2) });
+          return;
         };
 
         return (
@@ -468,8 +491,8 @@
             
             <div
               className={`reveal-container ${revealed ? 'revealed' : ''} ${generateOptionsString(config)}`}
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
             >
               <img className="reveal-background" src={config.backgroundImage} />
               {entries.slice().reverse().map((group, groupIndex) => (
@@ -482,8 +505,7 @@
                       key={entryIndex}
                       className={`reveal ${isHighlighted ? 'highlight' : ''}`}
                       style={{ left: `${entry.posX}%`, top: `${entry.posY}%`, width: `${entry.width}%`, height: `${entry.height}%` }}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, id)}
+                      onMouseDown={(e) => handleMouseDown(e, id, entry, e.currentTarget.parentElement)}
                       onMouseEnter={() => handleMouseEnter(id)}
                       onMouseLeave={handleMouseLeave}
                     >

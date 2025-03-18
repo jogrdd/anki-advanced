@@ -23,6 +23,9 @@
         border: 2px solid blue;
         box-sizing: border-box;
       }
+      .reveal.highlight * {
+        cursor: move;
+      }
     </style>
   </head>
   <body>
@@ -430,6 +433,7 @@
         const [revealed, setRevealed] = React.useState(false);
         const [highlightedId, setHighlightedId] = React.useState(null);
         const [draggedElement, setDraggedElement] = React.useState(null);
+        const [snapToGrid, setSnapToGrid] = React.useState({gridSize: 1, decimals: 0});
 
         const handleMouseEnter = (id) => setHighlightedId(id);
         const handleMouseLeave = () => setHighlightedId(null);
@@ -465,18 +469,28 @@
           setDraggedElement(null);
         };
 
+        const handleSnapToGrid = (value) => {
+          const gridSize = parseFloat(value);
+          const decimals = value.includes('.') ? value.split('.').pop().length : 0;
+          setSnapToGrid({gridSize, decimals});
+        };
+
+        const roundToGrid = (value) => {
+          return Math.round(value/snapToGrid.gridSize)*snapToGrid.gridSize;
+        };
+
         const handleMouseMove = (e) => {
           if (!draggedElement) return;
 
           const mousePosition = getMousePosition(e, draggedElement.ref);
           const diff = { x: mousePosition.x - draggedElement.mousePosition.x, y: mousePosition.y - draggedElement.mousePosition.y };
           const newPosition = {
-            x: draggedElement.position.x + diff.x,
-            y: draggedElement.position.y + diff.y,
-          }
-          console.log('MOUSE-MOVE', {draggedElement, mousePosition, diff, newPosition});
+            x: roundToGrid(draggedElement.position.x + diff.x),
+            y: roundToGrid(draggedElement.position.y + diff.y),
+          };
+          console.log('MOUSE-MOVE', { draggedElement, mousePosition, diff, newPosition });
 
-          onEntryUpdate(draggedElement.entryId, { posX: newPosition.x.toFixed(2), posY: newPosition.y.toFixed(2) });
+          onEntryUpdate(draggedElement.entryId, { posX: newPosition.x.toFixed(snapToGrid.decimals), posY: newPosition.y.toFixed(snapToGrid.decimals) });
           return;
         };
 
@@ -487,6 +501,15 @@
 
             <div>
               <label><input type="checkbox" onChange={(e) => setRevealed(e.target.checked)} /> Reveal</label>
+              <label>
+                Snap to grid:
+                <select value={snapToGrid.gridSize} onChange={(e) => handleSnapToGrid(e.target.value)}>
+                  <option value="0.01">None</option>
+                  <option value="0.1">Tiny</option>
+                  <option value="1">Small</option>
+                  <option value="5">Large</option>
+                </select>
+              </label>
             </div>
             
             <div

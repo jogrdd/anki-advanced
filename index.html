@@ -83,13 +83,13 @@
       /**
        * Config component
        */
-      function Config({ config }) {
+      function Config({ config, onChange }) {
         const handleFileUpload = (e) => {
           const file = e.target.files[0];
           if (file) {
             const reader = new FileReader();
             reader.onloadend = () => {
-              config.setBackgroundImage(reader.result);
+              onChange('backgroundImage', reader.result);
             };
             reader.readAsDataURL(file);
           }
@@ -105,13 +105,13 @@
               </label>
             </div>
             <div>
-              <label><input type="checkbox" checked={config.reversible} onChange={(e) => config.setReversible(e.target.checked)} /> Reversible</label>
+              <label><input type="checkbox" checked={config.reversible} onChange={(e) => onChange('reversible', e.target.checked) } /> Reversible</label>
             </div>
             <div>
-              <label><input type="checkbox" checked={config.centered} onChange={(e) => config.setCentered(e.target.checked)} /> Centered</label>
+              <label><input type="checkbox" checked={config.centered} onChange={(e) => onChange('centered', e.target.checked) } /> Centered</label>
             </div>
             <div>
-              <label><input type="checkbox" checked={config.hideable} onChange={(e) => config.setHideable(e.target.checked)} /> Hideable</label> - <span>once revealed, content can be hidden</span>
+              <label><input type="checkbox" checked={config.hideable} onChange={(e) => onChange('hideable', e.target.checked) } /> Hideable</label> - <span>once revealed, content can be hidden</span>
             </div>
           </div>
         );
@@ -675,28 +675,6 @@
           centered: true,
           hideable: false,
           backgroundImage: "",
-          setReversible: (value) => setConfig((prevConfig) => ({ ...prevConfig, reversible: value })),
-          setCentered: (value) => {
-            const factor = value ? 1 : -1;
-            const trailingZeros = /\.?0+$/;
-            setConfig((prevConfig) => {
-              setEntries((prevEntries) =>
-                prevEntries.map((group) =>
-                  group.map((entry) => {
-                    const adjustments = Object.assign({},
-                      ...Object.entries({posX: entry.width, posY: entry.height}).map(v => ({
-                        [v[0]]: (parseFloat(entry[v[0]]) + factor * parseFloat(v[1])/2).toFixed(2).replace(trailingZeros, '')
-                      }))
-                    )
-                    return { ...entry, ...adjustments };
-                  })
-                )
-              );
-              return { ...prevConfig, centered: value };
-            });
-          },
-          setHideable: (value) => setConfig((prevConfig) => ({ ...prevConfig, hideable: value })),
-          setBackgroundImage: (value) => setConfig((prevConfig) => ({ ...prevConfig, backgroundImage: value }))
         };
 
         const [entries, setEntries] = React.useState(initEntries);
@@ -722,6 +700,27 @@
           }).catch(err => {
             console.error('Failed to copy: ', err);
           });
+        };
+
+        const handleConfigChange = (key, value) => {
+          setConfig(prevConfig => ({ ...prevConfig, [key]: value }));
+
+          if (key === 'centered') {
+            const factor = value ? 1 : -1;
+            const trailingZeros = /\.?0+$/;
+            setEntries(prevEntries =>
+              prevEntries.map(group =>
+                group.map((entry) => {
+                  const adjustments = Object.assign({},
+                    ...Object.entries({posX: entry.width, posY: entry.height}).map(v => ({
+                      [v[0]]: (parseFloat(entry[v[0]]) + factor * parseFloat(v[1])/2).toFixed(2).replace(trailingZeros, '')
+                    }))
+                  )
+                  return { ...entry, ...adjustments };
+                })
+              )
+            );
+          }
         };
 
         const handleEntryChange = (id, field, value) => {
@@ -881,7 +880,7 @@
             <h1>Anki - Card-reveal Editor</h1>
             <Toolbar onReset={handleReset} onExport={handleExport} />
             <TableEditor entries={entries} onChange={handleEntryChange} onAddEntry={handleAddEntry} onGroupEntries={handleGroupEntries} onIsolateEntries={handleIsolateEntries} onMoveUp={handleMoveUp} onMoveDown={handleMoveDown} onRemoveEntries={handleRemoveEntries} />
-            <Config config={config} />
+            <Config config={config} onChange={handleConfigChange} />
             <VisualEditor entries={entries} config={config} htmlContent={htmlContent} onEntryUpdate={handleEntryUpdate} />
             <HtmlEditor config={config} htmlContent={htmlContent} />
           </>

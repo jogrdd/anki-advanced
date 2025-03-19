@@ -32,11 +32,11 @@
         border-radius: 5px;
         z-index: 100;
       }
-      .reveal.highlighted.drag * { cursor: move; }
-      .reveal.highlighted.resize-n, .reveal.highlighted.resize-n *, .reveal.highlighted.resize-s, .reveal.highlighted.resize-s * { cursor: ns-resize; }
-      .reveal.highlighted.resize-e, .reveal.highlighted.resize-e *, .reveal.highlighted.resize-w, .reveal.highlighted.resize-w * { cursor: ew-resize; }
-      .reveal.highlighted.resize-ne, .reveal.highlighted.resize-ne *, .reveal.highlighted.resize-sw, .reveal.highlighted.resize-sw * { cursor: nesw-resize; }
-      .reveal.highlighted.resize-nw, .reveal.highlighted.resize-nw *, .reveal.highlighted.resize-se, .reveal.highlighted.resize-se * { cursor: nwse-resize; }
+      .reveal-container.drag * { cursor: move; }
+      .reveal-container.resize-n, .reveal-container.resize-n *, .reveal-container.resize-s, .reveal-container.resize-s * { cursor: ns-resize; }
+      .reveal-container.resize-e, .reveal-container.resize-e *, .reveal-container.resize-w, .reveal-container.resize-w * { cursor: ew-resize; }
+      .reveal-container.resize-ne, .reveal-container.resize-ne *, .reveal-container.resize-sw, .reveal-container.resize-sw * { cursor: nesw-resize; }
+      .reveal-container.resize-nw, .reveal-container.resize-nw *, .reveal-container.resize-se, .reveal-container.resize-se * { cursor: nwse-resize; }
       
       .reveal-container:not(.centered) .reveal.selected:not(.centered),
       .reveal-container.centered .reveal.selected.not-centered,
@@ -210,9 +210,7 @@
       /**
        * Generate options string from config
        */
-      function generateOptionsString(config) {
-        return ['reversible', 'centered', 'hideable'].filter(option => config[option]).join(' ');
-      }
+      const filterConfigOptions = (config) => ['reversible', 'centered', 'hideable'].filter(option => config[option]);
 
       /**
        * Visual editor component
@@ -514,9 +512,11 @@
         const handleMouseMove = (e) => {
           if (!highlightedElement) return;
 
-          // Update capability
-          const capability = getElementCapability(e, highlightedElement.target);
-          setHighlightedElement(prevHighlightedElement => prevHighlightedElement ? {...prevHighlightedElement, capability} : null);
+          if (!highlightedElement.action) {
+            // Update capability if not during an action
+            const capability = getElementCapability(e, highlightedElement.target);
+            setHighlightedElement(prevHighlightedElement => prevHighlightedElement ? {...prevHighlightedElement, capability} : null);
+          }
           
           if (highlightedElement.action === 'drag') {
             const mousePosition = getMousePosition(e, highlightedElement.ref);
@@ -602,7 +602,12 @@
             </div>
             
             <div
-              className={`reveal-container ${revealed ? 'revealed' : ''} ${generateOptionsString(config)}`}
+              className={[
+                'reveal-container',
+                revealed ? 'revealed' : '',
+                ...filterConfigOptions(config),
+                highlightedElement?.capability ? highlightedElement.capability : '',
+              ].join(' ')}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
             >
@@ -615,8 +620,12 @@
                   return (
                     <div
                       key={entryIndex}
-                      className={`reveal ${entry.selected ? 'selected' : ''} ${highlighted ? 'highlighted' : ''} ${highlightedElement?.capability ? highlightedElement.capability : ''}`}
-                      style={{ left: `${entry.posX}%`, top: `${entry.posY}%`, width: `${entry.width}%`, height: `${entry.height}%` }}
+                      className={[
+                        'reveal',
+                        entry.selected ? 'selected' : '',
+                        highlighted ? 'highlighted' : '',
+                      ].join(' ')}
+                      style={{ left: entry.posX+'%', top: entry.posY+'%', width: entry.width+'%', height: entry.height+'%' }}
                       onMouseDown={(e) => handleMouseDown(e, id, entry, e.currentTarget.parentElement)}
                       onMouseEnter={(e) => handleMouseEnter(e, id, entry, e.currentTarget.parentElement)}
                       onMouseLeave={handleMouseLeave}
@@ -644,7 +653,7 @@
             <h2>ANKI Card - HTML Output</h2>
 
             <label>Options:</label>
-            <input type="text" value={generateOptionsString(config)} style={{ width: '100%' }} disabled />
+            <input type="text" value={filterConfigOptions(config).join(' ')} style={{ width: '100%' }} disabled />
             
             <label>Back:</label>
             <textarea style={{ width: '100%', height: '200px' }} value={htmlContent} disabled></textarea>

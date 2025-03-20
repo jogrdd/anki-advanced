@@ -120,9 +120,10 @@
       /**
        * Table editor component
        */
-      function TableEditor({ entries, onChange, onAddEntry, onGroupEntries, onIsolateEntries, onMoveUp, onMoveDown, onRemoveEntries }) {
+      function TableEditor({ entries, onChange, onChangeSelected }) {
         const [selectAllChecked, setSelectAllChecked] = React.useState(false);
         const [selectAllIndeterminate, setSelectAllIndeterminate] = React.useState(false);
+        const [selectedCount, setSelectedCount] = React.useState(false);
 
         const handleSelectAll = (e) => {
           const checked = e.target.checked;
@@ -130,21 +131,22 @@
           setSelectAllIndeterminate(false);
           entries.forEach((group, groupIndex) => {
             group.forEach((entry, entryIndex) => {
-              onChange(`${groupIndex}-${entryIndex}`, 'selected', checked);
+              onChange('update', `${groupIndex}-${entryIndex}`, { selected: checked });
             });
           });
         };
 
-        const handleHighlight = (id, value) => onChange(id, 'highlighted', value);
+        const handleHighlight = (id, value) => onChange('update', id, { highlighted: value });
 
         React.useEffect(() => {
           const totalEntries = entries.flat().length;
-          const selectedEntries = entries.flat().filter(entry => entry.selected).length;
+          const count = entries.flat().filter(entry => entry.selected).length;
+          setSelectedCount(count);
 
-          if (selectedEntries === 0) {
+          if (count === 0) {
             setSelectAllChecked(false);
             setSelectAllIndeterminate(false);
-          } else if (selectedEntries === totalEntries) {
+          } else if (count === totalEntries) {
             setSelectAllChecked(true);
             setSelectAllIndeterminate(false);
           } else {
@@ -182,25 +184,27 @@
                       key={index}
                       id={`${groupIndex}-${index}`}
                       {...entry}
-                      onChange={onChange}
+                      onChange={(id, field, value) => onChange('update', id, { [field]: value })}
                       onHighlight={(value) => handleHighlight(`${groupIndex}-${index}`, value)}
                     />
                   ))}
                 </tbody>
               ))}
               <tfoot>
-                <tr><td colSpan="8">
-                  <span>{entries.flat().filter(entry => entry.selected).length} rows selected - </span>
-                  <button onClick={onGroupEntries} disabled={entries.flat().filter(entry => entry.selected).length === 0}>Group</button>
-                  <button onClick={onIsolateEntries} disabled={entries.flat().filter(entry => entry.selected).length === 0}>Isolate</button>
+                <tr>
+                  <td colSpan="8">
+                    <span>{selectedCount} rows selected - </span>
+                    <button onClick={() => onChangeSelected('group')} disabled={!selectedCount}>Group</button>
+                    <button onClick={() => onChangeSelected('isolate')} disabled={!selectedCount}>Isolate</button>
 
-                  <button onClick={onMoveUp} disabled={entries.flat().filter(entry => entry.selected).length === 0}>Move Up</button>
-                  <button onClick={onMoveDown} disabled={entries.flat().filter(entry => entry.selected).length === 0}>Move Down</button>
+                    <button onClick={() => onChangeSelected('move', 'up')} disabled={!selectedCount}>Move Up</button>
+                    <button onClick={() => onChangeSelected('move', 'down')} disabled={!selectedCount}>Move Down</button>
 
-                  <button onClick={onRemoveEntries} disabled={entries.flat().filter(entry => entry.selected).length === 0}>Remove</button>
+                    <button onClick={() => onChangeSelected('delete')} disabled={!selectedCount}>Remove</button>
 
-                  <button onClick={onAddEntry}>Add</button>
-                </td></tr>
+                    <button onClick={() => onChange('create')}>Add</button>
+                  </td>
+                </tr>
               </tfoot>
             </table>
           </div>
@@ -215,7 +219,7 @@
       /**
        * Visual editor component
        */
-      function VisualEditor({ entries, config, htmlContent, onEntryUpdate }) {
+      function VisualEditor({ entries, config, htmlContent, onEntryChange }) {
         // Raw CSS used by advanced reveal features
         const revealCSS = `
           /****** REVEAL FUNCTIONALITY ******/
@@ -526,7 +530,7 @@
               y: roundToGrid(highlightedElement.position.y + diff.y),
             };
 
-            onEntryUpdate(highlightedElement.entryId, { posX: newPosition.x.toFixed(snapToGrid.decimals), posY: newPosition.y.toFixed(snapToGrid.decimals) });
+            onEntryChange('update', highlightedElement.entryId, { posX: newPosition.x.toFixed(snapToGrid.decimals), posY: newPosition.y.toFixed(snapToGrid.decimals) });
           }
 
           if (highlightedElement.action === 'resize') {
@@ -556,7 +560,7 @@
               }
             }
 
-            onEntryUpdate(highlightedElement.entryId, {
+            onEntryChange('update', highlightedElement.entryId, {
               posX: newPosition.x.toFixed(snapToGrid.decimals),
               posY: newPosition.y.toFixed(snapToGrid.decimals),
               width: Math.max(0, newSize.width).toFixed(snapToGrid.decimals),
@@ -677,8 +681,140 @@
           backgroundImage: "",
         };
 
-        const [entries, setEntries] = React.useState(initEntries);
-        const [config, setConfig] = React.useState({...defaultConfig, backgroundImage: initBackgroundImage});
+        /**
+         * Adjusts the coordinate origin of all entries between center and top-left, depending on the value of the reverse argument.
+         * Parameters:
+         *   - entries: An array of entry objects whose coordinates need to be adjusted.
+         *   - reverse: A boolean indicating the direction of adjustment. 
+         *        If true, changes the origin from center to top-left. 
+         *        If false, changes the origin from top-left to center.
+         */
+        const centerEntries = (entries, reverse) => {
+          const factor = reverse ? -1 : 1;
+          const trailingZeros = /\.?0+$/;
+          return entries.map(group =>
+              group.map((entry) => {
+                const adjustments = Object.assign({},
+                  ...Object.entries({posX: entry.width, posY: entry.height}).map(v => ({
+                    [v[0]]: (parseFloat(entry[v[0]]) + factor * parseFloat(v[1])/2).toFixed(2).replace(trailingZeros, '')
+                  }))
+                )
+                return { ...entry, ...adjustments };
+              })
+            );
+        };
+
+        const stateReducer = (state, action) => {
+          switch (action.type) {
+            case 'reset': {
+              return { ...state, entries: defaultEntries, config: defaultConfig };
+            }
+
+            case 'changeConfig': {
+              const entries = (action.key === 'centered' ? centerEntries(state.entries, !action.value) : state.entries );
+              const config = { ...state.config, [action.key]: action.value };
+              return { ...state, entries, config };
+            }
+
+            case 'updateEntry': {
+              const entries = state.entries.map((group, groupIndex) =>
+                group.map((entry, entryIndex) => {
+                  const entryId = `${groupIndex}-${entryIndex}`;
+                  return entryId === action.id ? { ...entry, ...action.fields } : entry;
+                })
+              );
+              return { ...state, entries };
+            }
+
+            case 'createEntry': {
+              const newPosition = state.config.centered ? "50" : 45;
+              const newEntry = { selected: true, highlighted: false, label: "", content: "", posX: newPosition, posY: newPosition, width: "10", height: "10" };
+
+              if (state.entries.length === 0) {
+                return { ...state, entries: [[newEntry]] };
+              }
+
+              return {
+                ...state,
+                entries: state.entries.map((group, index) => index === state.entries.length - 1 ? [...group, newEntry] : group),
+              };
+            }
+
+            case 'deleteSelectedEntries': {
+              const entries = state.entries.map(group =>
+                group.filter(entry => !entry.selected)
+              ).filter(group => group.length > 0);
+
+              return { ...state, entries };
+            }
+
+            case 'groupSelectedEntries':
+            case 'isolateSelectedEntries': {
+              const entries = [];
+              let prevSelected = undefined;
+              let prevGroupId = undefined;
+
+              state.entries.forEach((group, groupId) => {
+                group.forEach(entry => {
+                  const groupCondition = (action.type === 'groupSelectedEntries') && (entry.selected !== prevSelected || (!entry.selected && groupId !== prevGroupId));
+                  const isolateCondition = (action.type === 'isolateSelectedEntries') && (entry.selected || (!entry.selected && prevSelected) || groupId !== prevGroupId);
+                  if (groupCondition || isolateCondition) {
+                    entries.push([]);
+                    prevSelected = entry.selected;
+                    prevGroupId = groupId;
+                  }
+                  entries[entries.length - 1].push({...entry});
+                });
+              });
+
+              return { ...state, entries };
+            }
+
+            case 'moveSelectedEntries': {
+              const dirUp = (action.direction === 'up');
+              const entries = [];
+              let preventMoving = false;
+
+              (dirUp ? state.entries : state.entries.reverse()).forEach((group, groupId) => {
+                const newGroup = [];
+
+                (dirUp ? group : group.reverse()).forEach(entry => {
+                  if (newGroup.length == 0) {
+                    // First entry in the group
+                    if (groupId == 0) {
+                      // Last group, unable to move down, prevent further moving if selected
+                      newGroup.push(entry);
+                      preventMoving = entry.selected;
+                    } else if(entry.selected && !preventMoving) {
+                      // Overlap with previous group
+                      if (dirUp) entries[entries.length-1].push(entry); else entries[0].unshift(entry);
+                    } else {
+                      newGroup.push(entry);
+                    }
+                  } else if(entry.selected && !preventMoving) {
+                    // Move entry inside the group
+                    newGroup.splice(dirUp ? -1 : 1, 0, entry);
+                  } else {
+                    // Keep entry in the same position
+                    if (dirUp) newGroup.push(entry); else newGroup.unshift(entry);
+                  }
+                });
+
+                if (dirUp) entries.push(newGroup); else entries.unshift(newGroup);
+              });
+
+              return { ...state, entries: entries.filter(group => group.length > 0) };
+            }
+
+            default:
+              return state;
+          }
+        };
+
+        const [state, dispatch] = React.useReducer(stateReducer, {
+          entries: initEntries,
+          config: {...defaultConfig, backgroundImage: initBackgroundImage},
+        });
 
         const [htmlContent, setHtmlContent] = React.useState();
 
@@ -687,11 +823,10 @@
           if (revealContainer) {
             setHtmlContent(revealContainer.innerHTML.replace(/(\<div\s+[^>]*class="([^"]*\s+)?reveal(-sequencing)?(\s+[^"]*)?"[^>]*>)/g, '\n\n$1'));
           }
-        }, [entries, config]);
+        }, [state]);
 
         const handleReset = () => {
-          setEntries(defaultEntries);
-          setConfig(defaultConfig);
+          dispatch({ type: 'reset' });
         };
 
         const handleExport = () => {
@@ -703,186 +838,30 @@
         };
 
         const handleConfigChange = (key, value) => {
-          setConfig(prevConfig => ({ ...prevConfig, [key]: value }));
-
-          if (key === 'centered') {
-            const factor = value ? 1 : -1;
-            const trailingZeros = /\.?0+$/;
-            setEntries(prevEntries =>
-              prevEntries.map(group =>
-                group.map((entry) => {
-                  const adjustments = Object.assign({},
-                    ...Object.entries({posX: entry.width, posY: entry.height}).map(v => ({
-                      [v[0]]: (parseFloat(entry[v[0]]) + factor * parseFloat(v[1])/2).toFixed(2).replace(trailingZeros, '')
-                    }))
-                  )
-                  return { ...entry, ...adjustments };
-                })
-              )
-            );
-          }
+          dispatch({ type: 'changeConfig', key, value });
         };
 
-        const handleEntryChange = (id, field, value) => {
-          handleEntryUpdate(id, {[field]: value});
+        const handleEntryChange = (action, id, fields) => {
+          if (action === 'create') dispatch({ type: 'createEntry', id, fields });
+          if (action === 'update') dispatch({ type: 'updateEntry', id, fields });
+          if (action === 'delete') dispatch({ type: 'delete', id });
         };
 
-        const handleEntryUpdate = (id, updatedFields) => {
-          setEntries(prevEntries =>
-            prevEntries.map((group, groupIndex) =>
-              group.map((entry, entryIndex) => {
-                const entryId = `${groupIndex}-${entryIndex}`;
-                return entryId === id ? { ...entry, ...updatedFields } : entry;
-              })
-            )
-          );
-        };
-
-        const handleAddEntry = () => {
-          setEntries(prevEntries => {
-            const newPosition = config.centered ? "50" : 45;
-            const newEntry = { selected: true, highlighted: false, label: "", content: "", posX: newPosition, posY: newPosition, width: "10", height: "10" };
-
-            if (prevEntries.length === 0) {
-              return [[newEntry]];
-            }
-
-            return prevEntries.map((group, index) => 
-              index === prevEntries.length - 1 ? [...group, newEntry] : group
-            );
-          });
-        };
-
-        const handleGroupEntries = () => {
-          setEntries(prevEntries => {
-            const result = [];
-            let prevSelected = undefined;
-            let prevGroupId = undefined;
-
-            prevEntries.forEach((group, groupId) => {
-              group.forEach(entry => {
-                if (entry.selected !== prevSelected || (!entry.selected && groupId !== prevGroupId)) {
-                  result.push([]);
-                  prevSelected = entry.selected;
-                  prevGroupId = groupId;
-                }
-                result[result.length - 1].push({...entry});
-              });
-            });
-
-            return result;
-          });
-        };
-
-        const handleIsolateEntries = () => {
-          setEntries(prevEntries => {
-            const result = [];
-            let prevSelected = undefined;
-            let prevGroupId = undefined;
-
-            prevEntries.forEach((group, groupId) => {
-              group.forEach(entry => {
-                if (entry.selected || (!entry.selected && prevSelected) || groupId !== prevGroupId) {
-                  result.push([]);
-                  prevSelected = entry.selected;
-                  prevGroupId = groupId;
-                }
-                result[result.length - 1].push({...entry});
-              });
-            });
-
-            return result;
-          });
-        };
-
-        const handleRemoveEntries = () => {
-          setEntries(prevEntries =>
-            prevEntries.map(group =>
-              group.filter(entry => !entry.selected)
-            ).filter(group => group.length > 0)
-          );
-        };
-
-        const  handleMoveDown = () => {
-          setEntries(prevEntries => {
-            const result = [];
-            let preventMoving = false;
-
-            prevEntries.reverse().forEach((group, groupId) => {
-              const newGroup = [];
-
-              group.reverse().forEach(entry => {
-                if (newGroup.length == 0) {
-                  // First entry in the group
-                  if (groupId == 0) {
-                    // Last group, unable to move down, prevent further moving if selected
-                    newGroup.push(entry);
-                    preventMoving = entry.selected;
-                  } else if(entry.selected && !preventMoving) {
-                    // Overlap with previous group
-                    result[0].unshift(entry);
-                  } else {
-                    newGroup.push(entry);
-                  }
-                } else if(entry.selected && !preventMoving) {
-                  // Move entry inside the group
-                  newGroup.splice(1, 0, entry);
-                } else {
-                  // Keep entry in the same position
-                  newGroup.unshift(entry);
-                }
-              });
-              result.unshift(newGroup);
-            });
-
-            return result.filter(group => group.length > 0);
-          });
-        };
-
-        const  handleMoveUp = () => {
-          setEntries(prevEntries => {
-            const result = [];
-            let preventMoving = false;
-
-            prevEntries.forEach((group, groupId) => {
-              const newGroup = [];
-
-              group.forEach(entry => {
-                if (newGroup.length == 0) {
-                  // First entry in the group
-                  if (groupId == 0) {
-                    // First group, unable to move up, prevent further moving if selected
-                    newGroup.push(entry);
-                    preventMoving = entry.selected;
-                  } else if(entry.selected && !preventMoving) {
-                    // Overlap with previous group
-                    result[result.length-1].push(entry);
-                  } else {
-                    newGroup.push(entry);
-                  }
-                } else if(entry.selected && !preventMoving) {
-                  // Move entry inside the group
-                  newGroup.splice(-1, 0, entry);
-                } else {
-                  // Keep entry in the same position
-                  newGroup.push(entry);
-                }
-              });
-              result.push(newGroup);
-            });
-
-            return result.filter(group => group.length > 0);
-          });
+        const handleSelectedEntriesChange = (action, ...args) => {
+          if (action === 'delete') dispatch({ type: 'deleteSelectedEntries' });
+          if (action === 'group') dispatch({ type: 'groupSelectedEntries' });
+          if (action === 'isolate') dispatch({ type: 'isolateSelectedEntries' });
+          if (action === 'move') dispatch({ type: 'moveSelectedEntries', direction: args[0] });
         };
 
         return (
           <>
             <h1>Anki - Card-reveal Editor</h1>
             <Toolbar onReset={handleReset} onExport={handleExport} />
-            <TableEditor entries={entries} onChange={handleEntryChange} onAddEntry={handleAddEntry} onGroupEntries={handleGroupEntries} onIsolateEntries={handleIsolateEntries} onMoveUp={handleMoveUp} onMoveDown={handleMoveDown} onRemoveEntries={handleRemoveEntries} />
-            <Config config={config} onChange={handleConfigChange} />
-            <VisualEditor entries={entries} config={config} htmlContent={htmlContent} onEntryUpdate={handleEntryUpdate} />
-            <HtmlEditor config={config} htmlContent={htmlContent} />
+            <TableEditor entries={state.entries} onChange={handleEntryChange} onChangeSelected={handleSelectedEntriesChange} />
+            <Config config={state.config} onChange={handleConfigChange} />
+            <VisualEditor entries={state.entries} config={state.config} htmlContent={htmlContent} onEntryChange={handleEntryChange} />
+            <HtmlEditor config={state.config} htmlContent={htmlContent} />
           </>
         );
       }

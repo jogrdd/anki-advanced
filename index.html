@@ -54,11 +54,13 @@
       /**
        * Toolbar component
        */
-      function Toolbar({ onReset, onExport }) {
+      function Toolbar({ onReset, onExport, history, onUndo, onRedo }) {
         return (
           <div>
             <button onClick={onReset}>Reset</button>
             <button onClick={onExport}>Export to Clipboard</button>
+            <button onClick={onUndo} disabled={!history.undo}>Undo</button>
+            <button onClick={onRedo} disabled={!history.redo}>Redo</button>
           </div>
         );
       }
@@ -66,16 +68,26 @@
       /**
        * Table editor entry component
        */
-      function TableEditorEntry({ id, selected, highlighted, label, content, posX, posY, width, height, onChange, onHighlight }) {
+      function TableEditorEntry({ id, selected, highlighted, label, content, posX, posY, width, height, onChange, onHighlight, onSaveHistory }) {
+        const valueBuffer = React.useRef();
+
+        const handleInputFocus = (e) => {
+          valueBuffer.current = e.target.value;
+        };
+
+        const handleInputBlur = (e) => {
+          if (valueBuffer.current != e.target.value) onSaveHistory();
+        };
+
         return (
           <tr onMouseEnter={() => onHighlight(true)} onMouseLeave={() => onHighlight(false)}>
             <td><input type="checkbox" checked={selected} onChange={(e) => onChange(id, 'selected', e.target.checked)} /></td>
-            <td><input type="text" value={label} onChange={(e) => onChange(id, 'label', e.target.value)} /></td>
-            <td><input type="text" value={content} onChange={(e) => onChange(id, 'content', e.target.value)} /></td>
-            <td><input type="text" value={posX} onChange={(e) => onChange(id, 'posX', e.target.value)} /></td>
-            <td><input type="text" value={posY} onChange={(e) => onChange(id, 'posY', e.target.value)} /></td>
-            <td><input type="text" value={width} onChange={(e) => onChange(id, 'width', e.target.value)} /></td>
-            <td><input type="text" value={height} onChange={(e) => onChange(id, 'height', e.target.value)} /></td>
+            <td><input type="text" value={label} onChange={(e) => onChange(id, 'label', e.target.value)} onFocus={handleInputFocus} onBlur={handleInputBlur} /></td>
+            <td><input type="text" value={content} onChange={(e) => onChange(id, 'content', e.target.value)} onFocus={handleInputFocus} onBlur={handleInputBlur} /></td>
+            <td><input type="text" value={posX} onChange={(e) => onChange(id, 'posX', e.target.value)} onFocus={handleInputFocus} onBlur={handleInputBlur} /></td>
+            <td><input type="text" value={posY} onChange={(e) => onChange(id, 'posY', e.target.value)} onFocus={handleInputFocus} onBlur={handleInputBlur} /></td>
+            <td><input type="text" value={width} onChange={(e) => onChange(id, 'width', e.target.value)} onFocus={handleInputFocus} onBlur={handleInputBlur} /></td>
+            <td><input type="text" value={height} onChange={(e) => onChange(id, 'height', e.target.value)} onFocus={handleInputFocus} onBlur={handleInputBlur} /></td>
           </tr>
         );
       }
@@ -83,7 +95,7 @@
       /**
        * Config component
        */
-      function Config({ config, onChange }) {
+      function Config({ config, onChange, onSaveHistory }) {
         const handleFileUpload = (e) => {
           const file = e.target.files[0];
           if (file) {
@@ -95,6 +107,10 @@
           }
         };
 
+        const getCheckboxHandler = (action) => {
+          return (e) => { onChange(action, e.target.checked); onSaveHistory() };
+        }
+
         return (
           <div>
             <h2>Config</h2>
@@ -105,13 +121,13 @@
               </label>
             </div>
             <div>
-              <label><input type="checkbox" checked={config.reversible} onChange={(e) => onChange('reversible', e.target.checked) } /> Reversible</label>
+              <label><input type="checkbox" checked={config.reversible} onChange={getCheckboxHandler('reversible') } /> Reversible</label>
             </div>
             <div>
-              <label><input type="checkbox" checked={config.centered} onChange={(e) => onChange('centered', e.target.checked) } /> Centered</label>
+              <label><input type="checkbox" checked={config.centered} onChange={getCheckboxHandler('centered') } /> Centered</label>
             </div>
             <div>
-              <label><input type="checkbox" checked={config.hideable} onChange={(e) => onChange('hideable', e.target.checked) } /> Hideable</label> - <span>once revealed, content can be hidden</span>
+              <label><input type="checkbox" checked={config.hideable} onChange={getCheckboxHandler('hideable') } /> Hideable</label> - <span>once revealed, content can be hidden</span>
             </div>
           </div>
         );
@@ -120,7 +136,7 @@
       /**
        * Table editor component
        */
-      function TableEditor({ entries, onChange, onChangeSelected }) {
+      function TableEditor({ entries, onChange, onChangeSelected, onSaveHistory }) {
         const [selectAllChecked, setSelectAllChecked] = React.useState(false);
         const [selectAllIndeterminate, setSelectAllIndeterminate] = React.useState(false);
         const [selectedCount, setSelectedCount] = React.useState(false);
@@ -155,6 +171,14 @@
           }
         }, [entries]);
 
+        const getEntryHandler = (action) => {
+          return () => { onChange(action); onSaveHistory(); };
+        }
+
+        const getSelectedEntriesHandler = (action, ...args) => {
+          return () => { onChangeSelected(action, ...args); onSaveHistory(); };
+        }
+
         return (
           <div>
             <h2>Entries</h2>
@@ -186,6 +210,7 @@
                       {...entry}
                       onChange={(id, field, value) => onChange('update', id, { [field]: value })}
                       onHighlight={(value) => handleHighlight(`${groupIndex}-${index}`, value)}
+                      onSaveHistory={onSaveHistory}
                     />
                   ))}
                 </tbody>
@@ -194,15 +219,15 @@
                 <tr>
                   <td colSpan="8">
                     <span>{selectedCount} rows selected - </span>
-                    <button onClick={() => onChangeSelected('group')} disabled={!selectedCount}>Group</button>
-                    <button onClick={() => onChangeSelected('isolate')} disabled={!selectedCount}>Isolate</button>
+                    <button onClick={getSelectedEntriesHandler('group')} disabled={!selectedCount}>Group</button>
+                    <button onClick={getSelectedEntriesHandler('isolate')} disabled={!selectedCount}>Isolate</button>
 
-                    <button onClick={() => onChangeSelected('move', 'up')} disabled={!selectedCount}>Move Up</button>
-                    <button onClick={() => onChangeSelected('move', 'down')} disabled={!selectedCount}>Move Down</button>
+                    <button onClick={getSelectedEntriesHandler('move', 'up')} disabled={!selectedCount}>Move Up</button>
+                    <button onClick={getSelectedEntriesHandler('move', 'down')} disabled={!selectedCount}>Move Down</button>
 
-                    <button onClick={() => onChangeSelected('delete')} disabled={!selectedCount}>Remove</button>
+                    <button onClick={getSelectedEntriesHandler('delete')} disabled={!selectedCount}>Remove</button>
 
-                    <button onClick={() => onChange('create')}>Add</button>
+                    <button onClick={getEntryHandler('create')}>Add</button>
                   </td>
                 </tr>
               </tfoot>
@@ -219,7 +244,7 @@
       /**
        * Visual editor component
        */
-      function VisualEditor({ entries, config, htmlContent, onEntryChange }) {
+      function VisualEditor({ entries, config, htmlContent, onEntryChange, onSaveHistory }) {
         // Raw CSS used by advanced reveal features
         const revealCSS = `
           /****** REVEAL FUNCTIONALITY ******/
@@ -572,8 +597,7 @@
         const handleMouseUp = (e) => {
           if (!highlightedElement || !highlightedElement.action) return;
 
-          const mousePosition = getMousePosition(e, highlightedElement.ref);
-
+          onSaveHistory();
           setHighlightedElement(prevHighlightedElement => prevHighlightedElement ? {...prevHighlightedElement, action: null, position: null, size: null} : null);
         };
 
@@ -680,6 +704,7 @@
           hideable: false,
           backgroundImage: "",
         };
+        const initHistory = (entries, config) => ({values: [{ entries, config }], index: 0, undo: false, redo: false});
 
         /**
          * Adjusts the coordinate origin of all entries between center and top-left, depending on the value of the reverse argument.
@@ -707,7 +732,7 @@
         const stateReducer = (state, action) => {
           switch (action.type) {
             case 'reset': {
-              return { ...state, entries: defaultEntries, config: defaultConfig };
+              return { ...state, entries: defaultEntries, config: defaultConfig, history: initHistory(defaultEntries, defaultConfig) };
             }
 
             case 'changeConfig': {
@@ -806,6 +831,45 @@
               return { ...state, entries: entries.filter(group => group.length > 0) };
             }
 
+            case 'saveHistory': {
+              const values = state.history.values.slice(0, state.history.index + 1);
+              values.push({ entries: state.entries, config: state.config });
+              return {
+                ...state,
+                history: {
+                  values,
+                  index: state.history.index + 1,
+                  undo: true,
+                  redo: false,
+                }
+              };
+            }
+
+            case 'undo': {
+              const prevIndex = state.history.index - 1;
+              if (prevIndex < 0) return {...state};
+
+              return {
+                ...state,
+                entries: state.history.values[prevIndex].entries,
+                config: state.history.values[prevIndex].config,
+                history: { ...state.history, index: prevIndex, undo: prevIndex > 0, redo: true },
+              };
+            };
+
+            case 'redo': {
+              const nextIndex = state.history.index + 1;
+              const lastIndex = state.history.values.length - 1;
+              if (nextIndex > lastIndex) return {...state};
+
+              return {
+                ...state,
+                entries: state.history.values[nextIndex].entries,
+                config: state.history.values[nextIndex].config,
+                history: { ...state.history, index: nextIndex, undo: true, redo: nextIndex < lastIndex },
+              };
+            };
+
             default:
               return state;
           }
@@ -813,7 +877,17 @@
 
         const [state, dispatch] = React.useReducer(stateReducer, {
           entries: initEntries,
-          config: {...defaultConfig, backgroundImage: initBackgroundImage},
+          config: defaultConfig,
+          backgroundImage: initBackgroundImage
+        }, (init) => {
+          const entries = init.entries;
+          const config = {...init.config, backgroundImage: init.backgroundImage};
+
+          return {
+            entries,
+            config,
+            history: initHistory(entries, config),
+          }
         });
 
         const [htmlContent, setHtmlContent] = React.useState();
@@ -854,13 +928,45 @@
           if (action === 'move') dispatch({ type: 'moveSelectedEntries', direction: args[0] });
         };
 
+        const historyHandler = {
+          save: () => dispatch({ type: 'saveHistory' }),
+          undo: () => dispatch({ type: 'undo' }),
+          redo: () => dispatch({ type: 'redo' }),
+        };
+
+        /**
+         * App shortcuts
+         */
+        React.useEffect(() => {
+          const handleKeyDown = (e) => {
+            const activeElement = document.activeElement;
+            const isFormElement = activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA';
+
+            if (!isFormElement) {
+              if (e.ctrlKey && e.key === 'z') {
+                e.preventDefault();
+                dispatch({ type: 'undo' });
+              }
+              if (e.ctrlKey && e.key === 'y') {
+                e.preventDefault();
+                dispatch({ type: 'redo' });
+              }
+            }
+          };
+
+          document.addEventListener('keydown', handleKeyDown);
+          return () => {
+            document.removeEventListener('keydown', handleKeyDown);
+          };
+        }, []);
+
         return (
           <>
             <h1>Anki - Card-reveal Editor</h1>
-            <Toolbar onReset={handleReset} onExport={handleExport} />
-            <TableEditor entries={state.entries} onChange={handleEntryChange} onChangeSelected={handleSelectedEntriesChange} />
-            <Config config={state.config} onChange={handleConfigChange} />
-            <VisualEditor entries={state.entries} config={state.config} htmlContent={htmlContent} onEntryChange={handleEntryChange} />
+            <Toolbar onReset={handleReset} onExport={handleExport} history={state.history} onUndo={historyHandler.undo} onRedo={historyHandler.redo} />
+            <TableEditor entries={state.entries} onChange={handleEntryChange} onChangeSelected={handleSelectedEntriesChange} onSaveHistory={historyHandler.save} />
+            <Config config={state.config} onChange={handleConfigChange} onSaveHistory={historyHandler.save} />
+            <VisualEditor entries={state.entries} config={state.config} htmlContent={htmlContent} onEntryChange={handleEntryChange} onSaveHistory={historyHandler.save} />
             <HtmlEditor config={state.config} htmlContent={htmlContent} />
           </>
         );

@@ -962,11 +962,26 @@
         };
 
         const handleExport = () => {
-          navigator.clipboard.writeText(htmlContent).then(() => {
-            alert('Exported to clipboard!');
-          }).catch(err => {
-            console.error('Failed to copy: ', err);
-          });
+            const toaster = document.createElement('div');
+            toaster.style.position = 'fixed';
+            toaster.style.bottom = '5%';
+            toaster.style.left = '5%';
+            toaster.style.right = '5%';
+            toaster.style.padding = '2%';
+            toaster.style.backgroundColor = '#333';
+            toaster.style.color = '#fff';
+            toaster.style.borderRadius = '10px';
+            toaster.style.zIndex = '1000';
+
+            navigator.clipboard.writeText(htmlContent).then(() => {
+              toaster.textContent = '✅ Copied to clipboard!';
+              document.body.appendChild(toaster);
+              setTimeout(() => document.body.removeChild(toaster), 3000);
+            }).catch(err => {
+              toaster.textContent = '⚠️ Failed to copy!';
+              document.body.appendChild(toaster);
+              setTimeout(() => document.body.removeChild(toaster), 10000);
+            });
         };
 
         const handleConfigChange = (key, value) => {

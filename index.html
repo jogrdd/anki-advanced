@@ -5,6 +5,7 @@
     <title>Anki - Card-reveal Editor</title>
     <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.development.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom-server-legacy.browser.development.js"></script>
 
     <!-- Don't use this in production: -->
     <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
@@ -52,6 +53,237 @@
       /* React components */
 
       const EditMode = React.createContext(null);
+
+      // Raw CSS used by advanced reveal features
+      const revealCSS = `
+        /****** REVEAL FUNCTIONALITY ******/
+        /* USAGE
+
+        - Add an image with class "reveal-background":
+
+        <img class="reveal-background" src="{{Src}}">
+
+        - For each reveal element, add the following HTML:
+
+        <div class="reveal {{hint round border centered}}" style="top: {{Top}}; left: {{Left}}; height: {{Height}}; width: {{Width}};">
+          <input id="{{ID}}" type="checkbox"></input>
+          <label for="{{ID}}">{{Label}}</label>
+          <div>{{Content}}</div>
+        </div>
+
+        - A generator is available at https://docs.google.com/spreadsheets/d/10xOEICIvBzzAa8FtoUb2MYhJlJLE-AfpuX9IoUlIQ0I/edit?usp=sharing
+
+        - If not used in a reveal card type, manually add the following HTML around reveal items:
+
+        <div class="reveal-container {{revealed centered reversible hideable front/back-gradient/transparent front/back-text-white/red}}">{...}</div>
+
+        */
+
+        .reveal-container {
+            position: relative;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        .reveal-container .reveal-background {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+        .reveal-container img.reveal-background {
+            max-width: 100%;
+        }
+
+        .reveal-container > :not(.reveal-background):not(.reveal-sequencing):not(.reveal) {
+            display: none;
+        }
+
+        .reveal-container .reveal {
+            position: absolute;
+            margin: 0;
+            padding: 0;
+            z-index: 1;
+        }
+
+        .reveal-container .reveal > input {
+            margin-left:-99999px;
+        }
+
+        .reveal-container .reveal > input + label,
+        .reveal-container .reveal > input + label + div
+        {
+            display: flex;
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 100%;
+            z-index: 1;
+        }
+
+        /* NOT CHECKED */
+
+        .reveal-container:not(.revealed) .reveal:not(.revealed) > input:not(:checked) + label + div,
+        .reveal-container .reveal.revealed > input:checked + label + div,
+        .reveal-container.revealed .reveal > input:checked + label + div
+        {
+            display: none;
+        }
+
+        /* CHECKED or REVEALED */
+
+        .reveal-container:not(.revealed) .reveal:not(.revealed) > input:checked + label,
+        .reveal-container .reveal.revealed > input:not(:checked) + label,
+        .reveal-container.revealed .reveal > input:not(:checked) + label
+        {
+            opacity: 0;
+        }
+
+        .reveal-container:not(.revealed) .reveal:not(.revealed) .on-reveal {
+          display: none;
+        }
+
+        /* DEFAULT LOOK */
+
+        .reveal-container .reveal * {
+            box-sizing: border-box;
+            -moz-box-sizing: border-box;
+            -webkit-box-sizing: border-box;
+        }
+
+        .reveal-container .reveal > input + label,
+        .reveal-container .reveal > input + label + div {
+            outline: none;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            font-size: 2.5vw;
+            background: white;
+            border: none;
+        }
+
+        .reveal-container .reveal > input + label,
+        .reveal-container .reveal > input + label + div,
+        .reveal-container .reveal > input + label.text-black,
+        .reveal-container .reveal.front-text-black > input + label,
+        .reveal-container.front-text-black .reveal > input + label,
+        .reveal-container .reveal > input + label + div.text-black,
+        .reveal-container .reveal.back-text-black > input + label + div,
+        .reveal-container.back-text-black .reveal > input + label + div
+        {
+            color: black;
+            text-shadow: -1px -1px 1px white, 1px -1px 1px white, -1px 1px 1px white, 1px 1px 1px white;
+        }
+
+        /* ADDITIONAL LOOKS */
+        .reveal-container .reveal > input + label.gradient,
+        .reveal-container .reveal.front-gradient > input + label,
+        .reveal-container.front-gradient .reveal > input + label,
+        .reveal-container .reveal > input + label + div.gradient,
+        .reveal-container .reveal.back-gradient > input + label + div,
+        .reveal-container.back-gradient .reveal > input + label + div
+        {
+            background: radial-gradient(circle, white, transparent);
+            border: none;
+        }
+
+        .reveal-container .reveal > input + label.transparent,
+        .reveal-container .reveal.front-transparent > input + label,
+        .reveal-container.front-transparent .reveal > input + label,
+        .reveal-container .reveal > input + label + div.transparent,
+        .reveal-container .reveal.back-transparent > input + label + div,
+        .reveal-container.back-transparent .reveal > input + label + div
+        {
+            background: transparent;
+            border: none;
+        }
+
+        .reveal-container .reveal > input + label.text-white,
+        .reveal-container .reveal.front-text-white > input + label,
+        .reveal-container.front-text-white .reveal > input + label,
+        .reveal-container .reveal > input + label + div.text-white,
+        .reveal-container .reveal.back-text-white > input + label + div,
+        .reveal-container.back-text-white .reveal > input + label + div
+        {
+            color: white;
+            text-shadow: -1px -1px 1px black, 1px -1px 1px black, -1px 1px 1px black, 1px 1px 1px black;
+        }
+
+        .reveal-container .reveal > input + label.text-red,
+        .reveal-container .reveal.front-text-red > input + label,
+        .reveal-container.front-text-red .reveal > input + label,
+        .reveal-container .reveal > input + label + div.text-red,
+        .reveal-container .reveal.back-text-red > input + label + div,
+        .reveal-container.back-text-red .reveal > input + label + div
+        {
+            color: red;
+            text-shadow: -1px -1px 1px black, 1px -1px 1px black, -1px 1px 1px black, 1px 1px 1px black;
+        }
+
+        /* CENTERED feature */
+
+        .reveal-container .reveal.centered,
+        .reveal-container.centered .reveal:not(.not-centered)
+        {
+            transform: translateX(-50%) translateY(-50%);
+        }
+
+        /* SEQUENCING feature */
+
+        .reveal-container .reveal-sequencing {
+          background: transparent;
+          position: absolute;
+          left: 0;
+          top: 0;
+          height: 100%;
+          width: 100%;
+          z-index: 1;
+          display: none;
+        }
+
+        .reveal-container:not(.revealed) .reveal-sequencing:has(~ .reveal:not(.revealed) > input:not(:checked) + label)
+        {
+          display: block;
+        }
+
+        /* REVERSIBLE feature */
+
+        .reveal-container .reveal > input:checked + label.reversible,
+        .reveal-container .reveal.reversible > input:checked + label,
+        .reveal-container.reversible .reveal > input:checked + label,
+        .reveal-container .reveal.revealed > input:not(:checked)+ label.reversible,
+        .reveal-container .reveal.revealed.reversible > input:not(:checked) + label,
+        .reveal-container.reversible .reveal.revealed > input:not(:checked) + label,
+        .reveal-container.revealed .reveal > input:not(:checked)+ label.reversible,
+        .reveal-container.revealed .reveal.reversible > input:not(:checked) + label,
+        .reveal-container.revealed.reversible .reveal > input:not(:checked) + label
+        {
+            z-index: 2;
+        }
+
+        /* HIDEABLE feature */
+
+        .reveal-container .reveal.revealed > input:not(:checked)+ label.hideable,
+        .reveal-container .reveal.revealed.hideable > input:not(:checked) + label,
+        .reveal-container.hideable .reveal.revealed > input:not(:checked) + label,
+        .reveal-container.revealed .reveal > input:not(:checked)+ label.hideable,
+        .reveal-container.revealed .reveal.hideable > input:not(:checked) + label,
+        .reveal-container.revealed.hideable .reveal > input:not(:checked) + label
+        {
+            z-index: 2;
+        }
+
+        .reveal-container .reveal.revealed > input:checked + label.hideable,
+        .reveal-container.revealed .reveal > input:checked + label.hideable,
+        .reveal-container .reveal.revealed.hideable > input:checked + label,
+        .reveal-container.revealed .reveal.hideable > input:checked + label,
+        .reveal-container.hideable .reveal.revealed > input:checked + label,
+        .reveal-container.revealed.hideable .reveal > input:checked + label
+        {
+            opacity: 0;
+        }
+      `;
 
       /**
        * Toolbar component
@@ -262,236 +494,6 @@
        * Visual editor component
        */
       function VisualEditor({ entries, config, htmlContent, onEntryChange, onSaveHistory }) {
-        // Raw CSS used by advanced reveal features
-        const revealCSS = `
-          /****** REVEAL FUNCTIONALITY ******/
-          /* USAGE
-
-          - Add an image with class "reveal-background":
-
-          <img class="reveal-background" src="{{Src}}">
-
-          - For each reveal element, add the following HTML:
-
-          <div class="reveal {{hint round border centered}}" style="top: {{Top}}; left: {{Left}}; height: {{Height}}; width: {{Width}};">
-            <input id="{{ID}}" type="checkbox"></input>
-            <label for="{{ID}}">{{Label}}</label>
-            <div>{{Content}}</div>
-          </div>
-
-          - A generator is available at https://docs.google.com/spreadsheets/d/10xOEICIvBzzAa8FtoUb2MYhJlJLE-AfpuX9IoUlIQ0I/edit?usp=sharing
-
-          - If not used in a reveal card type, manually add the following HTML around reveal items:
-
-          <div class="reveal-container {{revealed centered reversible hideable front/back-gradient/transparent front/back-text-white/red}}">{...}</div>
-
-          */
-
-          .reveal-container {
-              position: relative;
-              margin: 0;
-              padding: 0;
-              user-select: none;
-          }
-
-          .reveal-container .reveal-background {
-              display: block;
-              width: 100%;
-              height: auto;
-          }
-          .reveal-container img.reveal-background {
-              max-width: 100%;
-          }
-
-          .reveal-container > :not(.reveal-background):not(.reveal-sequencing):not(.reveal) {
-              display: none;
-          }
-
-          .reveal-container .reveal {
-              position: absolute;
-              margin: 0;
-              padding: 0;
-              z-index: 1;
-          }
-
-          .reveal-container .reveal > input {
-              margin-left:-99999px;
-          }
-
-          .reveal-container .reveal > input + label,
-          .reveal-container .reveal > input + label + div
-          {
-              display: flex;
-              position: absolute;
-              top: 0;
-              left: 0;
-              height: 100%;
-              width: 100%;
-              z-index: 1;
-          }
-
-          /* NOT CHECKED */
-
-          .reveal-container:not(.revealed) .reveal:not(.revealed) > input:not(:checked) + label + div,
-          .reveal-container .reveal.revealed > input:checked + label + div,
-          .reveal-container.revealed .reveal > input:checked + label + div
-          {
-              display: none;
-          }
-
-          /* CHECKED or REVEALED */
-
-          .reveal-container:not(.revealed) .reveal:not(.revealed) > input:checked + label,
-          .reveal-container .reveal.revealed > input:not(:checked) + label,
-          .reveal-container.revealed .reveal > input:not(:checked) + label
-          {
-              opacity: 0;
-          }
-
-          .reveal-container:not(.revealed) .reveal:not(.revealed) .on-reveal {
-            display: none;
-          }
-
-          /* DEFAULT LOOK */
-
-          .reveal-container .reveal * {
-              box-sizing: border-box;
-              -moz-box-sizing: border-box;
-              -webkit-box-sizing: border-box;
-          }
-
-          .reveal-container .reveal > input + label,
-          .reveal-container .reveal > input + label + div {
-              outline: none;
-              justify-content: center;
-              align-items: center;
-              text-align: center;
-              font-size: 2.5vw;
-              background: white;
-              border: none;
-          }
-
-          .reveal-container .reveal > input + label,
-          .reveal-container .reveal > input + label + div,
-          .reveal-container .reveal > input + label.text-black,
-          .reveal-container .reveal.front-text-black > input + label,
-          .reveal-container.front-text-black .reveal > input + label,
-          .reveal-container .reveal > input + label + div.text-black,
-          .reveal-container .reveal.back-text-black > input + label + div,
-          .reveal-container.back-text-black .reveal > input + label + div
-          {
-              color: black;
-              text-shadow: -1px -1px 1px white, 1px -1px 1px white, -1px 1px 1px white, 1px 1px 1px white;
-          }
-
-          /* ADDITIONAL LOOKS */
-          .reveal-container .reveal > input + label.gradient,
-          .reveal-container .reveal.front-gradient > input + label,
-          .reveal-container.front-gradient .reveal > input + label,
-          .reveal-container .reveal > input + label + div.gradient,
-          .reveal-container .reveal.back-gradient > input + label + div,
-          .reveal-container.back-gradient .reveal > input + label + div
-          {
-              background: radial-gradient(circle, white, transparent);
-              border: none;
-          }
-
-          .reveal-container .reveal > input + label.transparent,
-          .reveal-container .reveal.front-transparent > input + label,
-          .reveal-container.front-transparent .reveal > input + label,
-          .reveal-container .reveal > input + label + div.transparent,
-          .reveal-container .reveal.back-transparent > input + label + div,
-          .reveal-container.back-transparent .reveal > input + label + div
-          {
-              background: transparent;
-              border: none;
-          }
-
-          .reveal-container .reveal > input + label.text-white,
-          .reveal-container .reveal.front-text-white > input + label,
-          .reveal-container.front-text-white .reveal > input + label,
-          .reveal-container .reveal > input + label + div.text-white,
-          .reveal-container .reveal.back-text-white > input + label + div,
-          .reveal-container.back-text-white .reveal > input + label + div
-          {
-              color: white;
-              text-shadow: -1px -1px 1px black, 1px -1px 1px black, -1px 1px 1px black, 1px 1px 1px black;
-          }
-
-          .reveal-container .reveal > input + label.text-red,
-          .reveal-container .reveal.front-text-red > input + label,
-          .reveal-container.front-text-red .reveal > input + label,
-          .reveal-container .reveal > input + label + div.text-red,
-          .reveal-container .reveal.back-text-red > input + label + div,
-          .reveal-container.back-text-red .reveal > input + label + div
-          {
-              color: red;
-              text-shadow: -1px -1px 1px black, 1px -1px 1px black, -1px 1px 1px black, 1px 1px 1px black;
-          }
-
-          /* CENTERED feature */
-
-          .reveal-container .reveal.centered,
-          .reveal-container.centered .reveal:not(.not-centered)
-          {
-              transform: translateX(-50%) translateY(-50%);
-          }
-
-          /* SEQUENCING feature */
-
-          .reveal-container .reveal-sequencing {
-            background: transparent;
-            position: absolute;
-            left: 0;
-            top: 0;
-            height: 100%;
-            width: 100%;
-            z-index: 1;
-            display: none;
-          }
-
-          .reveal-container:not(.revealed) .reveal-sequencing:has(~ .reveal:not(.revealed) > input:not(:checked) + label)
-          {
-            display: block;
-          }
-
-          /* REVERSIBLE feature */
-
-          .reveal-container .reveal > input:checked + label.reversible,
-          .reveal-container .reveal.reversible > input:checked + label,
-          .reveal-container.reversible .reveal > input:checked + label,
-          .reveal-container .reveal.revealed > input:not(:checked)+ label.reversible,
-          .reveal-container .reveal.revealed.reversible > input:not(:checked) + label,
-          .reveal-container.reversible .reveal.revealed > input:not(:checked) + label,
-          .reveal-container.revealed .reveal > input:not(:checked)+ label.reversible,
-          .reveal-container.revealed .reveal.reversible > input:not(:checked) + label,
-          .reveal-container.revealed.reversible .reveal > input:not(:checked) + label
-          {
-              z-index: 2;
-          }
-
-          /* HIDEABLE feature */
-
-          .reveal-container .reveal.revealed > input:not(:checked)+ label.hideable,
-          .reveal-container .reveal.revealed.hideable > input:not(:checked) + label,
-          .reveal-container.hideable .reveal.revealed > input:not(:checked) + label,
-          .reveal-container.revealed .reveal > input:not(:checked)+ label.hideable,
-          .reveal-container.revealed .reveal.hideable > input:not(:checked) + label,
-          .reveal-container.revealed.hideable .reveal > input:not(:checked) + label
-          {
-              z-index: 2;
-          }
-
-          .reveal-container .reveal.revealed > input:checked + label.hideable,
-          .reveal-container.revealed .reveal > input:checked + label.hideable,
-          .reveal-container .reveal.revealed.hideable > input:checked + label,
-          .reveal-container.revealed .reveal.hideable > input:checked + label,
-          .reveal-container.hideable .reveal.revealed > input:checked + label,
-          .reveal-container.revealed.hideable .reveal > input:checked + label
-          {
-              opacity: 0;
-          }
-        `;
         const [revealed, setRevealed] = React.useState(false);
         const [highlightedElement, setHighlightedElement] = React.useState(null);
         const [snapToGrid, setSnapToGrid] = React.useState({gridSize: 1, decimals: 0});
@@ -633,12 +635,10 @@
 
         return (
           <div id="visual-editor">
-            <style>{revealCSS}</style>
             <h2>Visual Editor</h2>
-            
 
             <div>
-              <label><input type="checkbox" checked={editMode == 'visual' && revealed} onChange={(e) => setRevealed(e.target.checked)} disabled={editMode != 'visual'} /> Reveal</label>
+              <label><input type="checkbox" checked={revealed} onChange={(e) => setRevealed(e.target.checked)} /> Reveal</label>
               <label>
                 Snap to grid:
                 <select value={snapToGrid.gridSize} onChange={(e) => handleSnapToGrid(e.target.value)} disabled={editMode != 'visual'}>
@@ -650,53 +650,96 @@
               </label>
             </div>
 
-            { editMode == 'visual' && (
+            <div>
+              <style>{revealCSS}</style>
 
-              <div
-                className={[
-                  'reveal-container',
-                  revealed ? 'revealed' : null,
-                  ...filterConfigOptions(config),
-                  highlightedElement?.capability ? highlightedElement.capability : null,
-                ].filter(c => c).join(' ')}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-              >
-                <img className="reveal-background" src={config.backgroundImage} />
-                {entries.slice().reverse().map((group, groupIndex) => (
-                <React.Fragment key={groupIndex}>
-                  {group.slice().reverse().map((entry, entryIndex) => {
-                    const id = `${entries.length - groupIndex - 1}-${group.length - entryIndex - 1}`;
-                    const highlighted = (highlightedElement && highlightedElement.entryId === id) || entry.highlighted;
-                    return (
-                      <div
-                        key={entryIndex}
-                        className={[
-                          'reveal',
-                          entry.selected ? 'selected' : null,
-                          highlighted ? 'highlighted' : null,
-                        ].filter(c => c).join(' ')}
-                        style={{ left: entry.posX+'%', top: entry.posY+'%', width: entry.width+'%', height: entry.height+'%' }}
-                        onMouseDown={(e) => handleMouseDown(e, id, entry, e.currentTarget.parentElement)}
-                        onMouseEnter={(e) => handleMouseEnter(e, id, entry, e.currentTarget.parentElement)}
-                        onMouseLeave={handleMouseLeave}
-                      >
-                        <input id={id} type="checkbox" />
-                        <label htmlFor={id} dangerouslySetInnerHTML={{ __html: entry.label }} />
-                        <div dangerouslySetInnerHTML={{ __html: entry.content }} />
+              { editMode == 'visual' && (
+                <div
+                  className={[
+                    'reveal-container',
+                    revealed ? 'revealed' : null,
+                    ...filterConfigOptions(config),
+                    highlightedElement?.capability ? highlightedElement.capability : null,
+                  ].filter(c => c).join(' ')}
+                  onMouseMove={handleMouseMove}
+                  onMouseUp={handleMouseUp}
+                >
+                  <img className="reveal-background" src={config.backgroundImage} />
+                  {entries.slice().reverse().map((group, groupIndex) => (
+                    <React.Fragment key={groupIndex}>
+                      {group.slice().reverse().map((entry, entryIndex) => {
+                        const id = `${entries.length - groupIndex - 1}-${group.length - entryIndex - 1}`;
+                        const highlighted = (highlightedElement && highlightedElement.entryId === id) || entry.highlighted;
+                        return (
+                          <div
+                            key={entryIndex}
+                            className={[
+                              'reveal',
+                              entry.selected ? 'selected' : null,
+                              highlighted ? 'highlighted' : null,
+                            ].filter(c => c).join(' ')}
+                            style={{ left: entry.posX+'%', top: entry.posY+'%', width: entry.width+'%', height: entry.height+'%' }}
+                            onMouseDown={(e) => handleMouseDown(e, id, entry, e.currentTarget.parentElement)}
+                            onMouseEnter={(e) => handleMouseEnter(e, id, entry, e.currentTarget.parentElement)}
+                            onMouseLeave={handleMouseLeave}
+                          >
+                            <input id={id} type="checkbox" />
+                            <label htmlFor={id} dangerouslySetInnerHTML={{ __html: entry.label }} />
+                            <div dangerouslySetInnerHTML={{ __html: entry.content }} />
+                          </div>
+                        );
+                      })}
+                      {groupIndex < entries.length - 1 && <div className="reveal-sequencing"></div>}
+                    </React.Fragment>
+                  ))}
+                </div>
+              )}
+
+              { editMode == 'html' && (
+                <div>
+                  <div className="header">Deck</div>
+
+                  <div className="frame">
+                      <div className="front">Front/Title</div>
+                      <div className="back">
+                        <Preview entries={entries} config={config} reveal={revealed} />
                       </div>
-                    );
-                  })}
-                  {groupIndex < entries.length - 1 && <div className="reveal-sequencing"></div>}
-                </React.Fragment>
-                ))}
-              </div>
-            )}
+                      <div className="mnemonic">Mnemonic...</div>
+                  </div>
 
-            { editMode == 'html' && (
-              <div dangerouslySetInnerHTML={{__html: htmlContent}}
-              ></div>
-            )}
+                  <div className="source">
+                    <div className="default"><a href="https://fr.wikipedia.org">Source link</a></div>
+                    Other source...
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      }
+
+      /**
+       * Preview component
+       */
+      function Preview({ entries, config, reveal }) {
+        return (
+          <div className={[ 'reveal-container', reveal ? 'revealed' : null, ...filterConfigOptions(config), ].filter(c => c).join(' ')}>
+            <img className="reveal-background" src={config.backgroundImage} />
+            {entries.slice().reverse().map((group, groupIndex) => (
+              <React.Fragment key={groupIndex}>
+                {group.slice().reverse().map((entry, entryIndex) => {
+                  const id = `${entries.length - groupIndex - 1}-${group.length - entryIndex - 1}`;
+                  return (
+                    <div key={entryIndex} className="reveal" style={{ left: entry.posX+'%', top: entry.posY+'%', width: entry.width+'%', height: entry.height+'%' }}>
+                      <input id={id} type="checkbox" />
+                      <label htmlFor={id} dangerouslySetInnerHTML={{ __html: entry.label }} />
+                      <div dangerouslySetInnerHTML={{ __html: entry.content }} />
+                    </div>
+                  );
+                })}
+                {groupIndex < entries.length - 1 && <div className="reveal-sequencing"></div>}
+              </React.Fragment>
+            ))}
           </div>
         );
       }
@@ -951,10 +994,8 @@
         React.useEffect(() => {
           if (editMode != 'visual') return;
 
-          const revealContainer = document.querySelector('#visual-editor .reveal-container');
-          if (revealContainer) {
-            setHtmlContent(revealContainer.outerHTML.replace(/(\<\w+\s+[^>]*class="([^"]*\s+)?(reveal|reveal-background|reveal-sequencing)(\s+[^"]*)?"[^>]*>)/g, '\n$1'));
-          }
+          const html = ReactDOMServer.renderToString(<Preview entries={state.entries} config={state.config} reveal={false} />);
+          setHtmlContent(html.replace(/(\<\w+\s+[^>]*class="([^"]*\s+)?(reveal|reveal-background|reveal-sequencing)(\s+[^"]*)?"[^>]*>)/g, '\n$1'));
         }, [state, editMode]);
 
         const handleReset = () => {

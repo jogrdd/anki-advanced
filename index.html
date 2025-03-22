@@ -73,26 +73,32 @@
        * Table editor entry component
        */
       function TableEditorEntry({ id, selected, highlighted, label, content, posX, posY, width, height, onChange, onHighlight, onSaveHistory }) {
-        const valueBuffer = React.useRef();
+        const editing = React.useRef(false);
         const editMode = React.useContext(EditMode);
 
         const handleInputFocus = (e) => {
-          valueBuffer.current = e.target.value;
+          editing.current = false;
         };
-
-        const handleInputBlur = (e) => {
-          if (valueBuffer.current != e.target.value) onSaveHistory();
+        
+        const inputChangeHandler = (field) => {
+          return (e) => {
+            if (!editing.current) {
+              editing.current = true;
+              onSaveHistory();
+            }
+            onChange(id, field, e.target.value);
+          }
         };
 
         return (
           <tr onMouseEnter={() => onHighlight(true)} onMouseLeave={() => onHighlight(false)}>
             <td><input type="checkbox" checked={selected} onChange={(e) => onChange(id, 'selected', e.target.checked)} disabled={editMode != 'visual'} /></td>
-            <td><input type="text" value={label} onChange={(e) => onChange(id, 'label', e.target.value)} onFocus={handleInputFocus} onBlur={handleInputBlur} disabled={editMode != 'visual'} /></td>
-            <td><input type="text" value={content} onChange={(e) => onChange(id, 'content', e.target.value)} onFocus={handleInputFocus} onBlur={handleInputBlur} disabled={editMode != 'visual'} /></td>
-            <td><input type="text" value={posX} onChange={(e) => onChange(id, 'posX', e.target.value)} onFocus={handleInputFocus} onBlur={handleInputBlur} disabled={editMode != 'visual'} /></td>
-            <td><input type="text" value={posY} onChange={(e) => onChange(id, 'posY', e.target.value)} onFocus={handleInputFocus} onBlur={handleInputBlur} disabled={editMode != 'visual'} /></td>
-            <td><input type="text" value={width} onChange={(e) => onChange(id, 'width', e.target.value)} onFocus={handleInputFocus} onBlur={handleInputBlur} disabled={editMode != 'visual'} /></td>
-            <td><input type="text" value={height} onChange={(e) => onChange(id, 'height', e.target.value)} onFocus={handleInputFocus} onBlur={handleInputBlur} disabled={editMode != 'visual'} /></td>
+            <td><input type="text" value={label} onChange={inputChangeHandler('label')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
+            <td><input type="text" value={content} onChange={inputChangeHandler('content')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
+            <td><input type="text" value={posX} onChange={inputChangeHandler('posX')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
+            <td><input type="text" value={posY} onChange={inputChangeHandler('posY')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
+            <td><input type="text" value={width} onChange={inputChangeHandler('width')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
+            <td><input type="text" value={height} onChange={inputChangeHandler('height')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
           </tr>
         );
       }
@@ -108,15 +114,15 @@
           if (file) {
             const reader = new FileReader();
             reader.onloadend = () => {
-              onChange('backgroundImage', reader.result);
               onSaveHistory();
+              onChange('backgroundImage', reader.result);
             };
             reader.readAsDataURL(file);
           }
         };
 
         const getCheckboxHandler = (action) => {
-          return (e) => { onChange(action, e.target.checked); onSaveHistory() };
+          return (e) => { onSaveHistory(); onChange(action, e.target.checked) };
         }
 
         return (
@@ -181,12 +187,12 @@
           }
         }, [entries]);
 
-        const getEntryHandler = (action) => {
-          return () => { onChange(action); onSaveHistory(); };
+        const entryHandler = (action) => {
+          return () => { onSaveHistory(); onChange(action); };
         }
 
-        const getSelectedEntriesHandler = (action, ...args) => {
-          return () => { onChangeSelected(action, ...args); onSaveHistory(); };
+        const selectedEntriesHandler = (action, ...args) => {
+          return () => { onSaveHistory(); onChangeSelected(action, ...args); };
         }
 
         return (
@@ -230,15 +236,15 @@
                 <tr>
                   <td colSpan="8">
                     <span>{selectedCount} rows selected - </span>
-                    <button onClick={getSelectedEntriesHandler('group')} disabled={editMode != 'visual' || !selectedCount}>Group</button>
-                    <button onClick={getSelectedEntriesHandler('isolate')} disabled={editMode != 'visual' || !selectedCount}>Isolate</button>
+                    <button onClick={selectedEntriesHandler('group')} disabled={editMode != 'visual' || !selectedCount}>Group</button>
+                    <button onClick={selectedEntriesHandler('isolate')} disabled={editMode != 'visual' || !selectedCount}>Isolate</button>
 
-                    <button onClick={getSelectedEntriesHandler('move', 'up')} disabled={editMode != 'visual' || !selectedCount}>Move Up</button>
-                    <button onClick={getSelectedEntriesHandler('move', 'down')} disabled={editMode != 'visual' || !selectedCount}>Move Down</button>
+                    <button onClick={selectedEntriesHandler('move', 'up')} disabled={editMode != 'visual' || !selectedCount}>Move Up</button>
+                    <button onClick={selectedEntriesHandler('move', 'down')} disabled={editMode != 'visual' || !selectedCount}>Move Down</button>
 
-                    <button onClick={getSelectedEntriesHandler('delete')} disabled={editMode != 'visual' || !selectedCount}>Remove</button>
+                    <button onClick={selectedEntriesHandler('delete')} disabled={editMode != 'visual' || !selectedCount}>Remove</button>
 
-                    <button onClick={getEntryHandler('create')} disabled={editMode != 'visual'}>Add</button>
+                    <button onClick={entryHandler('create')} disabled={editMode != 'visual'}>Add</button>
                   </td>
                 </tr>
               </tfoot>
@@ -535,6 +541,8 @@
 
         const handleMouseDown = (e, entryId, entry, ref) => {
           if (!highlightedElement) return;
+          
+          onSaveHistory();
 
           const position = { x: parseFloat(entry.posX), y: parseFloat(entry.posY) };
           const size = { width: parseFloat(entry.width), height: parseFloat(entry.height) };
@@ -610,7 +618,6 @@
         const handleMouseUp = (e) => {
           if (!highlightedElement || !highlightedElement.action) return;
 
-          onSaveHistory();
           setHighlightedElement(prevHighlightedElement => prevHighlightedElement ? {...prevHighlightedElement, action: null, position: null, size: null} : null);
         };
 
@@ -736,7 +743,7 @@
           hideable: false,
           backgroundImage: "",
         };
-        const initHistory = (entries, config) => ({values: [{ entries, config }], index: 0, undo: false, redo: false});
+        const initHistory = (entries, config) => ({values: [], index: 0, undo: false, redo: false});
 
         /**
          * Adjusts the coordinate origin of all entries between center and top-left, depending on the value of the reverse argument.
@@ -838,10 +845,10 @@
               const entries = [];
               let preventMoving = false;
 
-              (dirUp ? state.entries : state.entries.reverse()).forEach((group, groupId) => {
+              (dirUp ? state.entries : [...state.entries].reverse()).forEach((group, groupId) => {
                 const newGroup = [];
 
-                (dirUp ? group : group.reverse()).forEach(entry => {
+                (dirUp ? group : [...group].reverse()).forEach(entry => {
                   if (newGroup.length == 0) {
                     // First entry in the group
                     if (groupId == 0) {
@@ -870,13 +877,16 @@
             }
 
             case 'saveHistory': {
-              const values = state.history.values.slice(0, state.history.index + 1);
+              const length = state.history.values.length;
+              const index = state.history.index;
+              const values = state.history.values.slice(0, index);
               values.push({ entries: state.entries, config: state.config });
+
               return {
                 ...state,
                 history: {
                   values,
-                  index: state.history.index + 1,
+                  index: index + 1,
                   undo: true,
                   redo: false,
                 }
@@ -886,6 +896,11 @@
             case 'undo': {
               const prevIndex = state.history.index - 1;
               if (prevIndex < 0) return {...state};
+
+              const values = state.history.values;
+              if (values.length <= state.history.index) {
+                values.push({ entries: state.entries, config: state.config });
+              }
 
               return {
                 ...state,
@@ -929,6 +944,7 @@
         });
 
         const [htmlContent, setHtmlContent] = React.useState();
+        const editingHtmlContent = React.useRef(false);
         const [editMode, setEditMode] = React.useState('visual');
         const [importStatus, setImportStatus] = React.useState({ errors: [], warnings: [], valid: false });
 
@@ -1009,6 +1025,12 @@
 
         const handleHtmlContent = (html) => {
           if (editMode != 'html') return;
+
+          if (!editingHtmlContent.current) {
+            dispatch({ type: 'saveHistory' });
+            editingHtmlContent.current = true;
+          }
+
           setHtmlContent(html);
 
           // Parse HTMl
@@ -1098,16 +1120,15 @@
         };
 
         const handleEditMode = (mode, acceptImport) => {
+          editingHtmlContent.current = false;
+
           if (mode === 'html') {
-            dispatch({ type: 'saveHistory' }); // FIXME
             setEditMode('html');
             return;
           }
 
           if (mode === 'visual') {
-            if (acceptImport) {
-              dispatch({ type: 'saveHistory' }); // FIXME
-            } else {
+            if (!acceptImport) {
               dispatch({ type: 'undo' });
             }
             setEditMode('visual');

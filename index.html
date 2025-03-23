@@ -304,7 +304,7 @@
       /**
        * Table editor entry component
        */
-      function TableEditorEntry({ id, selected, highlighted, label, content, posX, posY, width, height, onChange, onHighlight, onSaveHistory }) {
+      function TableEditorEntry({ id, selected, highlighted, label, content, posX, posY, width, height, options, onChange, onHighlight, onSaveHistory }) {
         const editing = React.useRef(false);
         const editMode = React.useContext(EditMode);
 
@@ -331,6 +331,7 @@
             <td><input type="text" value={posY} onChange={inputChangeHandler('posY')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
             <td><input type="text" value={width} onChange={inputChangeHandler('width')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
             <td><input type="text" value={height} onChange={inputChangeHandler('height')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
+            <td><input type="text" value={options} onChange={inputChangeHandler('options')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
           </tr>
         );
       }
@@ -448,6 +449,7 @@
                   <th>PosY (%)</th>
                   <th>Width (%)</th>
                   <th>Height (%)</th>
+                  <th>Options</th>
                 </tr>
               </thead>
               {entries.map((entry, groupIndex) => (
@@ -677,6 +679,7 @@
                               'reveal',
                               entry.selected ? 'selected' : null,
                               highlighted ? 'highlighted' : null,
+                              ...entry.options.split(' '),
                             ].filter(c => c).join(' ')}
                             style={{ left: entry.posX+'%', top: entry.posY+'%', width: entry.width+'%', height: entry.height+'%' }}
                             onMouseDown={(e) => handleMouseDown(e, id, entry, e.currentTarget.parentElement)}
@@ -730,7 +733,11 @@
                 {group.slice().reverse().map((entry, entryIndex) => {
                   const id = `${entries.length - groupIndex - 1}-${group.length - entryIndex - 1}`;
                   return (
-                    <div key={entryIndex} className="reveal" style={{ left: entry.posX+'%', top: entry.posY+'%', width: entry.width+'%', height: entry.height+'%' }}>
+                    <div
+                      key={entryIndex}
+                      className={['reveal', ...entry.options.split(' ')].filter(c => c).join(' ')}
+                      style={{ left: entry.posX+'%', top: entry.posY+'%', width: entry.width+'%', height: entry.height+'%' }}
+                    >
                       <input id={id} type="checkbox" />
                       <label htmlFor={id} dangerouslySetInnerHTML={{ __html: entry.label }} />
                       <div dangerouslySetInnerHTML={{ __html: entry.content }} />
@@ -841,7 +848,7 @@
 
             case 'createEntry': {
               const newPosition = state.config.centered ? "50" : 45;
-              const newEntry = { selected: true, highlighted: false, label: "", content: "", posX: newPosition, posY: newPosition, width: "10", height: "10" };
+              const newEntry = { selected: true, highlighted: false, label: "", content: "", posX: newPosition, posY: newPosition, width: "10", height: "10", options: "" };
 
               if (state.entries.length === 0) {
                 return { ...state, entries: [[newEntry]] };
@@ -1161,6 +1168,7 @@
                   if (value === null) errors.push('Invalid format for height: ' + element.style.height);
                   return value || 0;
                 })(),
+                options: Array.from(element.classList).filter(cls => cls !== 'reveal').join(' '),
               };
 
               currentGroup.unshift(entry);

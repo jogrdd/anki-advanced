@@ -450,7 +450,6 @@
        */
       function OptionSelect({value, values, defaultValue, onChange}) {
         const editMode = React.useContext(EditMode);
-        console.log({ value, values: values.map((v, k) => v.charAt(0).toUpperCase() + v.slice(1)) })
 
         return (
           <select value={value} onChange={onChange} disabled={editMode != 'visual'}>
@@ -789,7 +788,7 @@
                   <div className="frame">
                       <div className="front">Front/Title</div>
                       <div className="back">
-                        <Preview entries={entries} options={options} background={background} reveal={revealed} imgSrc="data" />
+                        <Preview entries={entries} options={options} backgroundSrc={background.data || background.filename} reveal={revealed} />
                       </div>
                       <div className="mnemonic">Mnemonic...</div>
                   </div>
@@ -808,10 +807,10 @@
       /**
        * Preview component
        */
-      function Preview({ entries, options, background, reveal, imgSrc }) {
+      function Preview({ entries, options, backgroundSrc, reveal }) {
         return (
           <div className={[ 'reveal-container', reveal ? 'revealed' : null, ...formatOptions(options), ].filter(c => c).join(' ')}>
-            <img className="reveal-background" src={background[imgSrc]} />
+            <img className="reveal-background" src={backgroundSrc} />
             {entries.slice().reverse().map((group, groupIndex) => (
               <React.Fragment key={groupIndex}>
                 {group.slice().reverse().map((entry, entryIndex) => {
@@ -898,14 +897,14 @@
         const stateReducer = (state, action) => {
           switch (action.type) {
             case 'reset': {
-              return { ...state, entries: defaultEntries, options: defaultOptions, history: initHistory };
+              return { ...state, entries: defaultEntries, options: defaultOptions, background: defaultBackground, history: initHistory };
             }
 
             case 'import': {
               const entries = action.entries;
               const options = action.options;
               const background = { ...state.background, ...action.background };
-              return { ...state, entries, options };
+              return { ...state, entries, options, background };
             }
 
             case 'changeOptions': {
@@ -1074,7 +1073,7 @@
         React.useEffect(() => {
           if (editMode != 'visual') return;
 
-          const html = ReactDOMServer.renderToString(<Preview entries={state.entries} options={state.options} background={state.background} reveal={false} imgSrc="filename" />);
+          const html = ReactDOMServer.renderToString(<Preview entries={state.entries} options={state.options} backgroundSrc={state.background.filename} reveal={false} />);
           setHtmlContent(
             html
               .replace(/(\<\w+\s+[^>]*class="([^"]*\s+)?(reveal|reveal-background|reveal-sequencing)(\s+[^"]*)?"[^>]*>)/g, '\n  $1')
@@ -1204,7 +1203,15 @@
               const match = cls.match(/^(.+)-([^-]*)$/);
               if (match) {
                 const [, key, value] = match;
+
+                if (key in options) {
+                  errors.push(`Multiple values set for option "${key}"`);
+                }
                 options[key] = value;
+
+                if (!optionValues[key]) {
+                  return;
+                }
 
                 if (!optionValues[key].includes(value)) {
                   warnings.push(`Invalid value "${value}" for option "${key}"`);
@@ -1219,20 +1226,21 @@
           
           const backgroundElements = document.querySelectorAll('.reveal-background');
           if (backgroundElements.length == 0) {
-            errors.push('Missing element reveal-background');
+            errors.push('Missing element with class "reveal-background"');
           } else {
-            const src = backgroundElements[0].src;
+            const src = backgroundElements[0].attributes.src.value;
+
             if (src.length === 0) {
-              warnings.push('Empty src for background')
-            } else if (src.startsWith('data:')) background['data'] = src;
-            else if (src.startsWith('file://')) background['filename'] = src.split('/').pop();
-            else if (src.startsWith('https://')) background['filename'] = src;
-            else if (src.startsWith('http://')) background['filename'] = src;
-            else {
-              warnings.push('Unknown src format for background image: ' + src);
-              background['filename'] = src;
+              warnings.push('Background element has empty src property');
+            }
+
+            if (src.startsWith('data:')) {
+              background.data = src;
+            } else {
+              background.filename = src;
             }
           }
+
           if (backgroundElements.length > 1) {
             warnings.push('Too many "reveal-background" elements found, subsequent ones will be discarder');
           }

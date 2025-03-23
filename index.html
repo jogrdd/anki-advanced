@@ -340,9 +340,10 @@
        * Config component
        */
       function Config({ config, onChange, onSaveHistory }) {
+        const editing = React.useRef(false);
         const editMode = React.useContext(EditMode);
 
-        const handleFileUpload = (e) => {
+        const handleBackgroundImageUpload = (e) => {
           const file = e.target.files[0];
           if (file) {
             const reader = new FileReader();
@@ -354,6 +355,18 @@
           }
         };
 
+        const handleInputFocus = (e) => {
+          editing.current = false;
+        };
+
+        const handleBackgroundImageChange = (e) => {
+            if (!editing.current) {
+              editing.current = true;
+              onSaveHistory();
+            }
+          onChange('backgroundImage', e.target.value);
+        };
+
         const getCheckboxHandler = (action) => {
           return (e) => { onSaveHistory(); onChange(action, e.target.checked) };
         }
@@ -361,12 +374,17 @@
         return (
           <div>
             <h2>Config</h2>
+
+            <h3>Background</h3>
             <div>
               <label>
                 Background Image:
-                <input type="file" accept="image/*" onChange={handleFileUpload} disabled={editMode != 'visual'} />
+                <input type="text" value={config.backgroundImage} onChange={handleBackgroundImageChange} />
+                <input type="file" accept="image/*" onChange={handleBackgroundImageUpload} disabled={editMode != 'visual'} />
               </label>
             </div>
+
+            <h3>Global options</h3>
             <div>
               <label><input type="checkbox" checked={config.reversible} onChange={getCheckboxHandler('reversible') } disabled={editMode != 'visual'} /> Reversible</label>
             </div>

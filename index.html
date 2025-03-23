@@ -53,6 +53,24 @@
       /* React components */
 
       const EditMode = React.createContext(null);
+      
+      const defaultEntries = [];
+      const defaultOptions = {
+        reversible: true,
+        centered: true,
+        hideable: false,
+        front: 'white',
+        back: 'white',
+        'front-text': 'black',
+        'back-text': 'black',
+      };
+      const optionValues = {
+        front: ['white', 'black', 'transparent', 'gradient'],
+        back: ['white', 'black', 'transparent', 'gradient'],
+        'front-text': ['black', 'white', 'red'],
+        'back-text': ['black', 'white', 'red'],
+      };
+      const defaultBackground = { filename: "", data: "" };
 
       // Raw CSS used by advanced reveal features
       const revealCSS = `
@@ -339,7 +357,7 @@
       /**
        * Config component
        */
-      function Config({ config, background, onChange, onBackgroundChange, onSaveHistory }) {
+      function Config({ options, background, onChange, onBackgroundChange, onSaveHistory }) {
         const editing = React.useRef(false);
         const editMode = React.useContext(EditMode);
 
@@ -378,9 +396,13 @@
           onBackgroundChange({ data: '' });
         };
 
-        const getCheckboxHandler = (action) => {
+        const checkboxHandler = (action) => {
           return (e) => { onSaveHistory(); onChange(action, e.target.checked) };
         }
+
+        const selectHandler = (action) => {
+          return (e) => { onSaveHistory(); onChange(action, e.target.value) };
+        };
 
         return (
           <div>
@@ -401,15 +423,39 @@
 
             <h3>Global options</h3>
             <div>
-              <label><input type="checkbox" checked={config.reversible} onChange={getCheckboxHandler('reversible') } disabled={editMode != 'visual'} /> Reversible</label>
+              <label><input type="checkbox" checked={options.reversible} onChange={checkboxHandler('reversible') } disabled={editMode != 'visual'} /> Reversible</label>
             </div>
             <div>
-              <label><input type="checkbox" checked={config.centered} onChange={getCheckboxHandler('centered') } disabled={editMode != 'visual'} /> Centered</label>
+              <label><input type="checkbox" checked={options.centered} onChange={checkboxHandler('centered') } disabled={editMode != 'visual'} /> Centered</label>
             </div>
             <div>
-              <label><input type="checkbox" checked={config.hideable} onChange={getCheckboxHandler('hideable') } disabled={editMode != 'visual'} /> Hideable</label> - <span>once revealed, content can be hidden</span>
+              <label><input type="checkbox" checked={options.hideable} onChange={checkboxHandler('hideable') } disabled={editMode != 'visual'} /> Hideable</label> - <span>once revealed, content can be hidden</span>
+            </div>
+            <div>
+              <h4>Question style</h4>
+              <label>Background: <OptionSelect value={options['front']} values={optionValues['front']} defaultValue={defaultOptions['front']} onChange={selectHandler('front')} /></label>
+              <label>Text: <OptionSelect value={options['front-text']} values={optionValues['front-text']} defaultValue={defaultOptions['front-text']} onChange={selectHandler('front-text')} /></label>
+            </div>
+            <div>
+              <h4>Answer style</h4>
+              <label>Background: <OptionSelect value={options['back']} values={optionValues['back']} defaultValue={defaultOptions['back']} onChange={selectHandler('back')} /></label>
+              <label>Text: <OptionSelect value={options['back-text']} values={optionValues['back-text']} defaultValue={defaultOptions['back-text']} onChange={selectHandler('back-text')} /></label>
             </div>
           </div>
+        );
+      }
+
+      /**
+       * OptionSelect component
+       */
+      function OptionSelect({value, values, defaultValue, onChange}) {
+        const editMode = React.useContext(EditMode);
+        console.log({ value, values: values.map((v, k) => v.charAt(0).toUpperCase() + v.slice(1)) })
+
+        return (
+          <select value={value} onChange={onChange} disabled={editMode != 'visual'}>
+            {values.map((v, k) => <option key={k} value={v}>{v.charAt(0).toUpperCase() + v.slice(1)}{v === defaultValue ? " (default)" : ""}</option> )}
+          </select>
         );
       }
 
@@ -521,14 +567,19 @@
       }
 
       /**
-       * Generate options string from config
+       * Generate options string
        */
-      const filterConfigOptions = (config) => ['reversible', 'centered', 'hideable'].filter(option => config[option]);
+      const formatOptions = (options) => Object.keys(options).map(key => {
+        const value = options[key];
+        if (value === true) return key;
+        if (typeof value === 'string' && value.length && value !== defaultOptions[key]) return [key, value].join('-');
+        return null;
+      }).filter(value => value !== null);
 
       /**
        * Visual editor component
        */
-      function VisualEditor({ entries, config, background, htmlContent, onEntryChange, onSaveHistory }) {
+      function VisualEditor({ entries, options, background, htmlContent, onEntryChange, onSaveHistory }) {
         const [revealed, setRevealed] = React.useState(false);
         const [highlightedElement, setHighlightedElement] = React.useState(null);
         const [snapToGrid, setSnapToGrid] = React.useState({gridSize: 1, decimals: 0});
@@ -621,12 +672,12 @@
             const diff = { x: mousePosition.x - highlightedElement.mousePosition.x, y: mousePosition.y - highlightedElement.mousePosition.y };
             const newPosition = {...highlightedElement.position};
             const newSize = {...highlightedElement.size};
-            const resizeMultiplier = config.centered ? 2 : 1;
+            const resizeMultiplier = options.centered ? 2 : 1;
             const direction = highlightedElement.direction;
 
             if (direction.includes('n')) {
               newSize.height = roundToGrid(highlightedElement.size.height - diff.y * resizeMultiplier); // Improve roundToGrid
-              if (!config.centered) {
+              if (!options.centered) {
                 newPosition.y = roundToGrid(highlightedElement.position.y + Math.min(diff.y, highlightedElement.size.height));
               }
             }
@@ -638,7 +689,7 @@
             }
             if (direction.includes('w')) {
               newSize.width = roundToGrid(highlightedElement.size.width - diff.x * resizeMultiplier); // TODO: Improve roundToGrid
-              if (!config.centered) {
+              if (!options.centered) {
                 newPosition.x = roundToGrid(highlightedElement.position.x + Math.min(diff.x, highlightedElement.size.width));
               }
             }
@@ -693,7 +744,7 @@
                   className={[
                     'reveal-container',
                     revealed ? 'revealed' : null,
-                    ...filterConfigOptions(config),
+                    ...formatOptions(options),
                     highlightedElement?.capability ? highlightedElement.capability : null,
                   ].filter(c => c).join(' ')}
                   onMouseMove={handleMouseMove}
@@ -738,7 +789,7 @@
                   <div className="frame">
                       <div className="front">Front/Title</div>
                       <div className="back">
-                        <Preview entries={entries} config={config} background={background} reveal={revealed} imgSrc="data" />
+                        <Preview entries={entries} options={options} background={background} reveal={revealed} imgSrc="data" />
                       </div>
                       <div className="mnemonic">Mnemonic...</div>
                   </div>
@@ -757,9 +808,9 @@
       /**
        * Preview component
        */
-      function Preview({ entries, config, background, reveal, imgSrc }) {
+      function Preview({ entries, options, background, reveal, imgSrc }) {
         return (
-          <div className={[ 'reveal-container', reveal ? 'revealed' : null, ...filterConfigOptions(config), ].filter(c => c).join(' ')}>
+          <div className={[ 'reveal-container', reveal ? 'revealed' : null, ...formatOptions(options), ].filter(c => c).join(' ')}>
             <img className="reveal-background" src={background[imgSrc]} />
             {entries.slice().reverse().map((group, groupIndex) => (
               <React.Fragment key={groupIndex}>
@@ -812,7 +863,6 @@
       }
 
       function MyApp() {
-        const defaultEntries = [];
         const initEntries = [
           [
             { selected: false, highlighted: false, label: "LABEL", content: "CONTENT", posX: "50", posY: "50", width: "20", height: "10", options: "" },
@@ -820,12 +870,6 @@
         ];
 
         const initBackground = { filename: "", data: "" };
-        const defaultConfig = {
-          reversible: true,
-          centered: true,
-          hideable: false,
-        };
-        const defaultBackground = { filename: "", data: "" };
         const initHistory = { values: [], index: 0, undo: false, redo: false };
 
         /**
@@ -854,20 +898,20 @@
         const stateReducer = (state, action) => {
           switch (action.type) {
             case 'reset': {
-              return { ...state, entries: defaultEntries, config: defaultConfig, history: initHistory };
+              return { ...state, entries: defaultEntries, options: defaultOptions, history: initHistory };
             }
 
             case 'import': {
               const entries = action.entries;
-              const config = action.config;
+              const options = action.options;
               const background = { ...state.background, ...action.background };
-              return { ...state, entries, config };
+              return { ...state, entries, options };
             }
 
-            case 'changeConfig': {
+            case 'changeOptions': {
               const entries = (action.key === 'centered' ? centerEntries(state.entries, !action.value) : state.entries );
-              const config = { ...state.config, [action.key]: action.value };
-              return { ...state, entries, config };
+              const options = { ...state.options, [action.key]: action.value };
+              return { ...state, entries, options };
             }
 
             case 'updateBackground': {
@@ -886,7 +930,7 @@
             }
 
             case 'createEntry': {
-              const newPosition = state.config.centered ? "50" : 45;
+              const newPosition = state.options.centered ? "50" : 45;
               const newEntry = { selected: true, highlighted: false, label: "", content: "", posX: newPosition, posY: newPosition, width: "10", height: "10", options: "" };
 
               if (state.entries.length === 0) {
@@ -969,7 +1013,7 @@
               const length = state.history.values.length;
               const index = state.history.index;
               const values = state.history.values.slice(0, index);
-              values.push({ entries: state.entries, config: state.config, background: state.background });
+              values.push({ entries: state.entries, options: state.options, background: state.background });
 
               return {
                 ...state,
@@ -988,7 +1032,7 @@
 
               const values = state.history.values;
               if (values.length <= state.history.index) {
-                values.push({ entries: state.entries, config: state.config, background: state.background });
+                values.push({ entries: state.entries, options: state.options, background: state.background });
               }
 
               return {
@@ -1017,7 +1061,7 @@
 
         const [state, dispatch] = React.useReducer(stateReducer, {
           entries: initEntries,
-          config: defaultConfig,
+          options: defaultOptions,
           background: initBackground,
           history: initHistory,
         });
@@ -1030,7 +1074,7 @@
         React.useEffect(() => {
           if (editMode != 'visual') return;
 
-          const html = ReactDOMServer.renderToString(<Preview entries={state.entries} config={state.config} background={state.background} reveal={false} imgSrc="filename" />);
+          const html = ReactDOMServer.renderToString(<Preview entries={state.entries} options={state.options} background={state.background} reveal={false} imgSrc="filename" />);
           setHtmlContent(
             html
               .replace(/(\<\w+\s+[^>]*class="([^"]*\s+)?(reveal|reveal-background|reveal-sequencing)(\s+[^"]*)?"[^>]*>)/g, '\n  $1')
@@ -1065,8 +1109,8 @@
             });
         };
 
-        const handleConfigChange = (key, value) => {
-          dispatch({ type: 'changeConfig', key, value });
+        const handleOptionsChange = (key, value) => {
+          dispatch({ type: 'changeOptions', key, value });
         };
 
         const handleBackgroundChange = (fields) => {
@@ -1123,7 +1167,7 @@
             return match ? parseFloat(match[1]) : null;
         }
 
-        const handleHtmlContent = (html) => {
+        const handleHtmlContentChange = (html) => {
           if (editMode != 'html') return;
 
           if (!editingHtmlContent.current) {
@@ -1135,7 +1179,7 @@
 
           // Parse HTMl
           const entries = [];
-          const config = {};
+          const options = {};
           const background = {};
           const errors = [];
           const warnings = [];
@@ -1147,17 +1191,29 @@
           if (!firstElement.classList.contains('reveal-container')) {
             errors.push('Missing or invalid class "reveal-container" on the first element.');
           } else {
-            const options = Array.from(firstElement.classList).filter(cls => cls !== 'reveal-container');
+            const optionsList = Array.from(firstElement.classList).filter(cls => cls !== 'reveal-container');
 
-            Object.keys(defaultConfig).forEach(key => {
-              config[key] = options.includes(key);
-            });
-
-            options.forEach(option => {
-              if (!(option in defaultConfig)) {
-                config[option] = true;
-                warnings.push(`Unknown option "${option}"`);
+            optionsList.forEach(cls => {
+              // Look for exact match of boolean value
+              if (cls in defaultOptions && typeof defaultOptions[cls] === 'boolean') {
+                options[cls] = true;
+                return;
               }
+
+              // Look for prefix-options
+              const match = cls.match(/^(.+)-([^-]*)$/);
+              if (match) {
+                const [, key, value] = match;
+                options[key] = value;
+
+                if (!optionValues[key].includes(value)) {
+                  warnings.push(`Invalid value "${value}" for option "${key}"`);
+                }
+                return;
+              }
+
+              options[cls] = true;
+              warnings.push(`Unknown option "${cls}"`);
             });
           }
           
@@ -1226,7 +1282,7 @@
             entries.unshift(currentGroup);
           }
 
-          dispatch({ type: 'import', entries, config, background});
+          dispatch({ type: 'import', entries, options, background});
           setImportStatus({ errors, warnings, valid: errors.length === 0 });
         };
 
@@ -1253,9 +1309,9 @@
             <EditMode.Provider value={editMode}>
               <Toolbar onReset={handleReset} onExport={handleExport} editMode={editMode} history={state.history} onUndo={historyHandler.undo} onRedo={historyHandler.redo} />
               <TableEditor entries={state.entries} onChange={handleEntryChange} onChangeSelected={handleSelectedEntriesChange} editMode={editMode} onSaveHistory={historyHandler.save} />
-              <Config config={state.config} background={state.background} onChange={handleConfigChange} onBackgroundChange={handleBackgroundChange} editMode={editMode} onSaveHistory={historyHandler.save} />
-              <VisualEditor entries={state.entries} config={state.config} background={state.background} htmlContent={htmlContent} editMode={editMode} onEntryChange={handleEntryChange} onSaveHistory={historyHandler.save} />
-              <HtmlEditor htmlContent={htmlContent} importStatus={importStatus} onEditMode={handleEditMode} onHtmlContentChange={handleHtmlContent} />
+              <Config options={state.options} background={state.background} onChange={handleOptionsChange} onBackgroundChange={handleBackgroundChange} editMode={editMode} onSaveHistory={historyHandler.save} />
+              <VisualEditor entries={state.entries} options={state.options} background={state.background} htmlContent={htmlContent} editMode={editMode} onEntryChange={handleEntryChange} onSaveHistory={historyHandler.save} />
+              <HtmlEditor htmlContent={htmlContent} importStatus={importStatus} onEditMode={handleEditMode} onHtmlContentChange={handleHtmlContentChange} />
             </EditMode.Provider>
           </>
         );

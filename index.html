@@ -339,7 +339,7 @@
       /**
        * Config component
        */
-      function Config({ config, onChange, onSaveHistory }) {
+      function Config({ config, background, onChange, onBackgroundChange, onSaveHistory }) {
         const editing = React.useRef(false);
         const editMode = React.useContext(EditMode);
 
@@ -347,36 +347,35 @@
           editing.current = false;
         };
 
-        const fileDataUploader = React.useRef(null);
+        const backgroundUploader = React.useRef(null);
 
-        const handleBackgroundImageDataChange = (e) => {
+        const handleBackgroundDataChange = (e) => {
           const file = e.target.files[0];
           if (file) {
             const reader = new FileReader();
             reader.onloadend = () => {
               onSaveHistory();
-              onChange('backgroundImage', { filename: file.name, data: reader.result });
+              onBackgroundChange({ filename: file.name, data: reader.result });
             };
             reader.readAsDataURL(file);
           }
         };
 
-        const handleUploadBackgroundImage = (e) => {
-          fileDataUploader.current.click();
+        const handleUploadBackground = (e) => {
+          backgroundUploader.current.click();
         };
 
-        const handleBackgroundImageFilenameChange = (e) => {
+        const handleBackgroundFilenameChange = (e) => {
           if (!editing.current) {
             editing.current = true;
             onSaveHistory();
           }
-          onChange('backgroundImage', { ...config.backgroundImage, filename: e.target.value });
+          onBackgroundChange({ filename: e.target.value });
         };
 
-        const handleClearBackgroundImage = () => {
+        const handleClearBackgroundData = () => {
           onSaveHistory();
-          console.log({backgroundImage: config.backgroundImage})
-          onChange('backgroundImage', { ...config.backgroundImage, data: '' });
+          onBackgroundChange({ data: '' });
         };
 
         const getCheckboxHandler = (action) => {
@@ -390,14 +389,14 @@
             <h3>Background</h3>
             <div>
               <label>
-                Background Image Filename:
-                <input type="text" value={config.backgroundImage.filename} onChange={handleBackgroundImageFilenameChange} onFocus={handleInputFocus} disabled={editMode != 'visual'} />
+                Background Filename:
+                <input type="text" value={background.filename} onChange={handleBackgroundFilenameChange} onFocus={handleInputFocus} disabled={editMode != 'visual'} />
               </label>
             </div>
             <div>
-              <input type="file" accept="image/*" ref={fileDataUploader} onChange={handleBackgroundImageDataChange} hidden />
-              <button onClick={handleUploadBackgroundImage}>Upload</button>
-              <button onClick={handleClearBackgroundImage}>Clear Image</button>
+              <input type="file" accept="image/*" ref={backgroundUploader} onChange={handleBackgroundDataChange} hidden />
+              <button onClick={handleUploadBackground}>Upload</button>
+              <button onClick={handleClearBackgroundData}>Clear Image</button>
             </div>
 
             <h3>Global options</h3>
@@ -529,7 +528,7 @@
       /**
        * Visual editor component
        */
-      function VisualEditor({ entries, config, htmlContent, onEntryChange, onSaveHistory }) {
+      function VisualEditor({ entries, config, background, htmlContent, onEntryChange, onSaveHistory }) {
         const [revealed, setRevealed] = React.useState(false);
         const [highlightedElement, setHighlightedElement] = React.useState(null);
         const [snapToGrid, setSnapToGrid] = React.useState({gridSize: 1, decimals: 0});
@@ -700,7 +699,7 @@
                   onMouseMove={handleMouseMove}
                   onMouseUp={handleMouseUp}
                 >
-                  <img className="reveal-background" src={config.backgroundImage.data || config.backgroundImage.filename} />
+                  <img className="reveal-background" src={background.data || background.filename} />
                   {entries.slice().reverse().map((group, groupIndex) => (
                     <React.Fragment key={groupIndex}>
                       {group.slice().reverse().map((entry, entryIndex) => {
@@ -739,7 +738,7 @@
                   <div className="frame">
                       <div className="front">Front/Title</div>
                       <div className="back">
-                        <Preview entries={entries} config={config} reveal={revealed} imgSrc="data" />
+                        <Preview entries={entries} config={config} background={background} reveal={revealed} imgSrc="data" />
                       </div>
                       <div className="mnemonic">Mnemonic...</div>
                   </div>
@@ -758,10 +757,10 @@
       /**
        * Preview component
        */
-      function Preview({ entries, config, reveal, imgSrc }) {
+      function Preview({ entries, config, background, reveal, imgSrc }) {
         return (
           <div className={[ 'reveal-container', reveal ? 'revealed' : null, ...filterConfigOptions(config), ].filter(c => c).join(' ')}>
-            <img className="reveal-background" src={config.backgroundImage[imgSrc]} />
+            <img className="reveal-background" src={background[imgSrc]} />
             {entries.slice().reverse().map((group, groupIndex) => (
               <React.Fragment key={groupIndex}>
                 {group.slice().reverse().map((entry, entryIndex) => {
@@ -816,18 +815,18 @@
         const defaultEntries = [];
         const initEntries = [
           [
-            { selected: false, highlighted: false, label: "LABEL", content: "CONTENT", posX: "50", posY: "50", width: "20", height: "10" },
+            { selected: false, highlighted: false, label: "LABEL", content: "CONTENT", posX: "50", posY: "50", width: "20", height: "10", options: "" },
           ],
         ];
 
-        const initBackgroundImage = { filename: "", data: "" };
+        const initBackground = { filename: "", data: "" };
         const defaultConfig = {
           reversible: true,
           centered: true,
           hideable: false,
-          backgroundImage: { filename: "", data: "" },
         };
-        const initHistory = (entries, config) => ({values: [], index: 0, undo: false, redo: false});
+        const defaultBackground = { filename: "", data: "" };
+        const initHistory = { values: [], index: 0, undo: false, redo: false };
 
         /**
          * Adjusts the coordinate origin of all entries between center and top-left, depending on the value of the reverse argument.
@@ -855,12 +854,13 @@
         const stateReducer = (state, action) => {
           switch (action.type) {
             case 'reset': {
-              return { ...state, entries: defaultEntries, config: defaultConfig, history: initHistory(defaultEntries, defaultConfig) };
+              return { ...state, entries: defaultEntries, config: defaultConfig, history: initHistory };
             }
 
             case 'import': {
               const entries = action.entries;
-              const config = { ...action.config, backgroundImage: { ...state.config.backgroundImage, ...action.backgroundImage } };
+              const config = action.config;
+              const background = { ...state.background, ...action.background };
               return { ...state, entries, config };
             }
 
@@ -868,6 +868,11 @@
               const entries = (action.key === 'centered' ? centerEntries(state.entries, !action.value) : state.entries );
               const config = { ...state.config, [action.key]: action.value };
               return { ...state, entries, config };
+            }
+
+            case 'updateBackground': {
+              const background = { ...state.background, ...action.fields };
+              return { ...state, background };
             }
 
             case 'updateEntry': {
@@ -964,7 +969,7 @@
               const length = state.history.values.length;
               const index = state.history.index;
               const values = state.history.values.slice(0, index);
-              values.push({ entries: state.entries, config: state.config });
+              values.push({ entries: state.entries, config: state.config, background: state.background });
 
               return {
                 ...state,
@@ -983,13 +988,12 @@
 
               const values = state.history.values;
               if (values.length <= state.history.index) {
-                values.push({ entries: state.entries, config: state.config });
+                values.push({ entries: state.entries, config: state.config, background: state.background });
               }
 
               return {
                 ...state,
-                entries: state.history.values[prevIndex].entries,
-                config: state.history.values[prevIndex].config,
+                ...state.history.values[prevIndex],
                 history: { ...state.history, index: prevIndex, undo: prevIndex > 0, redo: true },
               };
             };
@@ -1001,8 +1005,7 @@
 
               return {
                 ...state,
-                entries: state.history.values[nextIndex].entries,
-                config: state.history.values[nextIndex].config,
+                ...state.history.values[nextIndex],
                 history: { ...state.history, index: nextIndex, undo: true, redo: nextIndex < lastIndex },
               };
             };
@@ -1015,16 +1018,8 @@
         const [state, dispatch] = React.useReducer(stateReducer, {
           entries: initEntries,
           config: defaultConfig,
-          backgroundImage: initBackgroundImage,
-        }, (init) => {
-          const entries = init.entries;
-          const config = {...init.config, backgroundImage: init.backgroundImage};
-
-          return {
-            entries,
-            config,
-            history: initHistory(entries, config),
-          };
+          background: initBackground,
+          history: initHistory,
         });
 
         const [htmlContent, setHtmlContent] = React.useState();
@@ -1035,7 +1030,7 @@
         React.useEffect(() => {
           if (editMode != 'visual') return;
 
-          const html = ReactDOMServer.renderToString(<Preview entries={state.entries} config={state.config} reveal={false} imgSrc="filename" />);
+          const html = ReactDOMServer.renderToString(<Preview entries={state.entries} config={state.config} background={state.background} reveal={false} imgSrc="filename" />);
           setHtmlContent(
             html
               .replace(/(\<\w+\s+[^>]*class="([^"]*\s+)?(reveal|reveal-background|reveal-sequencing)(\s+[^"]*)?"[^>]*>)/g, '\n  $1')
@@ -1072,6 +1067,10 @@
 
         const handleConfigChange = (key, value) => {
           dispatch({ type: 'changeConfig', key, value });
+        };
+
+        const handleBackgroundChange = (fields) => {
+          dispatch({ type: 'updateBackground', fields });
         };
 
         const handleEntryChange = (action, id, fields) => {
@@ -1137,7 +1136,7 @@
           // Parse HTMl
           const entries = [];
           const config = {};
-          const backgroundImage = {};
+          const background = {};
           const errors = [];
           const warnings = [];
           
@@ -1151,7 +1150,6 @@
             const options = Array.from(firstElement.classList).filter(cls => cls !== 'reveal-container');
 
             Object.keys(defaultConfig).forEach(key => {
-              if (key === 'backgroundImage') return;
               config[key] = options.includes(key);
             });
 
@@ -1169,14 +1167,14 @@
           } else {
             const src = backgroundElements[0].src;
             if (src.length === 0) {
-              warnings.push('Empty src for background image')
-            } else if (src.startsWith('data:')) backgroundImage['data'] = src;
-            else if (src.startsWith('file://')) backgroundImage['filename'] = src.split('/').pop();
-            else if (src.startsWith('https://')) backgroundImage['filename'] = src;
-            else if (src.startsWith('http://')) backgroundImage['filename'] = src;
+              warnings.push('Empty src for background')
+            } else if (src.startsWith('data:')) background['data'] = src;
+            else if (src.startsWith('file://')) background['filename'] = src.split('/').pop();
+            else if (src.startsWith('https://')) background['filename'] = src;
+            else if (src.startsWith('http://')) background['filename'] = src;
             else {
               warnings.push('Unknown src format for background image: ' + src);
-              backgroundImage['filename'] = src;
+              background['filename'] = src;
             }
           }
           if (backgroundElements.length > 1) {
@@ -1228,7 +1226,7 @@
             entries.unshift(currentGroup);
           }
 
-          dispatch({ type: 'import', entries, config, backgroundImage});
+          dispatch({ type: 'import', entries, config, background});
           setImportStatus({ errors, warnings, valid: errors.length === 0 });
         };
 
@@ -1255,8 +1253,8 @@
             <EditMode.Provider value={editMode}>
               <Toolbar onReset={handleReset} onExport={handleExport} editMode={editMode} history={state.history} onUndo={historyHandler.undo} onRedo={historyHandler.redo} />
               <TableEditor entries={state.entries} onChange={handleEntryChange} onChangeSelected={handleSelectedEntriesChange} editMode={editMode} onSaveHistory={historyHandler.save} />
-              <Config config={state.config} onChange={handleConfigChange} editMode={editMode} onSaveHistory={historyHandler.save} />
-              <VisualEditor entries={state.entries} config={state.config} htmlContent={htmlContent} editMode={editMode} onEntryChange={handleEntryChange} onSaveHistory={historyHandler.save} />
+              <Config config={state.config} background={state.background} onChange={handleConfigChange} onBackgroundChange={handleBackgroundChange} editMode={editMode} onSaveHistory={historyHandler.save} />
+              <VisualEditor entries={state.entries} config={state.config} background={state.background} htmlContent={htmlContent} editMode={editMode} onEntryChange={handleEntryChange} onSaveHistory={historyHandler.save} />
               <HtmlEditor htmlContent={htmlContent} importStatus={importStatus} onEditMode={handleEditMode} onHtmlContentChange={handleHtmlContent} />
             </EditMode.Provider>
           </>

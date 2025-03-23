@@ -1020,7 +1020,11 @@
           if (editMode != 'visual') return;
 
           const html = ReactDOMServer.renderToString(<Preview entries={state.entries} config={state.config} reveal={false} />);
-          setHtmlContent(html.replace(/(\<\w+\s+[^>]*class="([^"]*\s+)?(reveal|reveal-background|reveal-sequencing)(\s+[^"]*)?"[^>]*>)/g, '\n$1'));
+          setHtmlContent(
+            html
+              .replace(/(\<\w+\s+[^>]*class="([^"]*\s+)?(reveal|reveal-background|reveal-sequencing)(\s+[^"]*)?"[^>]*>)/g, '\n  $1')
+              .replace(/<\/div>\s*$/, '\n</div>')
+          );
         }, [state, editMode]);
 
         const handleReset = () => {

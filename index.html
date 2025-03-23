@@ -343,28 +343,40 @@
         const editing = React.useRef(false);
         const editMode = React.useContext(EditMode);
 
-        const handleBackgroundImageUpload = (e) => {
+        const handleInputFocus = (e) => {
+          editing.current = false;
+        };
+
+        const fileDataUploader = React.useRef(null);
+
+        const handleBackgroundImageDataChange = (e) => {
           const file = e.target.files[0];
           if (file) {
             const reader = new FileReader();
             reader.onloadend = () => {
               onSaveHistory();
-              onChange('backgroundImage', reader.result);
+              onChange('backgroundImage', { filename: file.name, data: reader.result });
             };
             reader.readAsDataURL(file);
           }
         };
 
-        const handleInputFocus = (e) => {
-          editing.current = false;
+        const handleUploadBackgroundImage = (e) => {
+          fileDataUploader.current.click();
         };
 
-        const handleBackgroundImageChange = (e) => {
-            if (!editing.current) {
-              editing.current = true;
-              onSaveHistory();
-            }
-          onChange('backgroundImage', e.target.value);
+        const handleBackgroundImageFilenameChange = (e) => {
+          if (!editing.current) {
+            editing.current = true;
+            onSaveHistory();
+          }
+          onChange('backgroundImage', { ...config.backgroundImage, filename: e.target.value });
+        };
+
+        const handleClearBackgroundImage = () => {
+          onSaveHistory();
+          console.log({backgroundImage: config.backgroundImage})
+          onChange('backgroundImage', { ...config.backgroundImage, data: '' });
         };
 
         const getCheckboxHandler = (action) => {
@@ -378,10 +390,14 @@
             <h3>Background</h3>
             <div>
               <label>
-                Background Image:
-                <input type="text" value={config.backgroundImage} onChange={handleBackgroundImageChange} />
-                <input type="file" accept="image/*" onChange={handleBackgroundImageUpload} disabled={editMode != 'visual'} />
+                Background Image Filename:
+                <input type="text" value={config.backgroundImage.filename} onChange={handleBackgroundImageFilenameChange} onFocus={handleInputFocus} disabled={editMode != 'visual'} />
               </label>
+            </div>
+            <div>
+              <input type="file" accept="image/*" ref={fileDataUploader} onChange={handleBackgroundImageDataChange} hidden />
+              <button onClick={handleUploadBackgroundImage}>Upload</button>
+              <button onClick={handleClearBackgroundImage}>Clear Image</button>
             </div>
 
             <h3>Global options</h3>
@@ -684,7 +700,7 @@
                   onMouseMove={handleMouseMove}
                   onMouseUp={handleMouseUp}
                 >
-                  <img className="reveal-background" src={config.backgroundImage} />
+                  <img className="reveal-background" src={config.backgroundImage.data || config.backgroundImage.filename} />
                   {entries.slice().reverse().map((group, groupIndex) => (
                     <React.Fragment key={groupIndex}>
                       {group.slice().reverse().map((entry, entryIndex) => {
@@ -723,7 +739,7 @@
                   <div className="frame">
                       <div className="front">Front/Title</div>
                       <div className="back">
-                        <Preview entries={entries} config={config} reveal={revealed} />
+                        <Preview entries={entries} config={config} reveal={revealed} imgSrc="data" />
                       </div>
                       <div className="mnemonic">Mnemonic...</div>
                   </div>
@@ -742,10 +758,10 @@
       /**
        * Preview component
        */
-      function Preview({ entries, config, reveal }) {
+      function Preview({ entries, config, reveal, imgSrc }) {
         return (
           <div className={[ 'reveal-container', reveal ? 'revealed' : null, ...filterConfigOptions(config), ].filter(c => c).join(' ')}>
-            <img className="reveal-background" src={config.backgroundImage} />
+            <img className="reveal-background" src={config.backgroundImage[imgSrc]} />
             {entries.slice().reverse().map((group, groupIndex) => (
               <React.Fragment key={groupIndex}>
                 {group.slice().reverse().map((entry, entryIndex) => {
@@ -804,12 +820,12 @@
           ],
         ];
 
-        const initBackgroundImage = "";
+        const initBackgroundImage = { filename: "", data: "" };
         const defaultConfig = {
           reversible: true,
           centered: true,
           hideable: false,
-          backgroundImage: "",
+          backgroundImage: { filename: "", data: "" },
         };
         const initHistory = (entries, config) => ({values: [], index: 0, undo: false, redo: false});
 
@@ -844,7 +860,7 @@
 
             case 'import': {
               const entries = action.entries;
-              const config = { ...defaultConfig, ...action.config };
+              const config = { ...action.config, backgroundImage: { ...state.config.backgroundImage, ...action.backgroundImage } };
               return { ...state, entries, config };
             }
 
@@ -1008,7 +1024,7 @@
             entries,
             config,
             history: initHistory(entries, config),
-          }
+          };
         });
 
         const [htmlContent, setHtmlContent] = React.useState();
@@ -1019,7 +1035,7 @@
         React.useEffect(() => {
           if (editMode != 'visual') return;
 
-          const html = ReactDOMServer.renderToString(<Preview entries={state.entries} config={state.config} reveal={false} />);
+          const html = ReactDOMServer.renderToString(<Preview entries={state.entries} config={state.config} reveal={false} imgSrc="filename" />);
           setHtmlContent(
             html
               .replace(/(\<\w+\s+[^>]*class="([^"]*\s+)?(reveal|reveal-background|reveal-sequencing)(\s+[^"]*)?"[^>]*>)/g, '\n  $1')
@@ -1120,7 +1136,8 @@
 
           // Parse HTMl
           const entries = [];
-          const config = {backgroundImage: ''};
+          const config = {};
+          const backgroundImage = {};
           const errors = [];
           const warnings = [];
           
@@ -1150,7 +1167,17 @@
           if (backgroundElements.length == 0) {
             errors.push('Missing element reveal-background');
           } else {
-            config.backgroundImage = backgroundElements[0].src;
+            const src = backgroundElements[0].src;
+            if (src.length === 0) {
+              warnings.push('Empty src for background image')
+            } else if (src.startsWith('data:')) backgroundImage['data'] = src;
+            else if (src.startsWith('file://')) backgroundImage['filename'] = src.split('/').pop();
+            else if (src.startsWith('https://')) backgroundImage['filename'] = src;
+            else if (src.startsWith('http://')) backgroundImage['filename'] = src;
+            else {
+              warnings.push('Unknown src format for background image: ' + src);
+              backgroundImage['filename'] = src;
+            }
           }
           if (backgroundElements.length > 1) {
             warnings.push('Too many "reveal-background" elements found, subsequent ones will be discarder');
@@ -1201,7 +1228,7 @@
             entries.unshift(currentGroup);
           }
 
-          dispatch({ type: 'import', entries, config});
+          dispatch({ type: 'import', entries, config, backgroundImage});
           setImportStatus({ errors, warnings, valid: errors.length === 0 });
         };
 

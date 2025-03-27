@@ -45,6 +45,38 @@
       .reveal-container.centered .reveal.highlighted.not-centered {
           transform: translateX(-5px) translateY(-5px);
       }
+      .modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+      }
+      .modal-content {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        width: 80%;
+        max-width: 600px;
+        position: relative;
+      }
+      .close-button {
+        background: #007BFF;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        cursor: pointer;
+        margin-top: 20px;
+        display: block;
+        width: 100%;
+        text-align: center;
+        border-radius: 5px;
+      }
     </style>
   </head>
   <body>
@@ -401,7 +433,7 @@
       /**
        * Toolbar component
        */
-      function Toolbar({ onReset, onExport, history, onUndo, onRedo }) {
+      function Toolbar({ onReset, onExport, history, onUndo, onRedo, onOpenSettings }) {
         const editMode = React.useContext(EditMode);
 
         return (
@@ -410,6 +442,7 @@
             <button onClick={onExport}>Copy to Clipboard</button>
             <button onClick={onUndo} disabled={editMode != 'visual' || !history.undo}>Undo</button>
             <button onClick={onRedo} disabled={editMode != 'visual' || !history.redo}>Redo</button>
+            <button onClick={onOpenSettings}>Settings</button>
           </div>
         );
       }
@@ -976,6 +1009,31 @@
         )
       }
 
+      function SettingsModal({ isOpen, onClose, options, background, onChange, onBackgroundChange, onSaveHistory }) {
+        if (!isOpen) return null;
+
+        const handleOutsideClick = (e) => {
+          if (e.target.classList.contains('modal')) {
+            onClose();
+          }
+        };
+
+        return (
+          <div className="modal" onClick={handleOutsideClick}>
+            <div className="modal-content">
+              <Config
+                options={options}
+                background={background}
+                onChange={onChange}
+                onBackgroundChange={onBackgroundChange}
+                onSaveHistory={onSaveHistory}
+              />
+              <button className="close-button" onClick={onClose}>Close</button>
+            </div>
+          </div>
+        );
+      }
+
       function MyApp() {
         const initEntries = [
           [
@@ -1184,6 +1242,10 @@
         const editingHtmlContent = React.useRef(false);
         const [editMode, setEditMode] = React.useState('visual');
         const [importStatus, setImportStatus] = React.useState({ errors: [], warnings: [], valid: false });
+        const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
+
+        const handleOpenSettings = () => setIsSettingsOpen(true);
+        const handleCloseSettings = () => setIsSettingsOpen(false);
 
         React.useEffect(() => {
           if (editMode != 'visual') return;
@@ -1430,11 +1492,11 @@
           <>
             <h1>Anki - Card-reveal Editor</h1>
             <EditMode.Provider value={editMode}>
-              <Toolbar onReset={handleReset} onExport={handleExport} editMode={editMode} history={state.history} onUndo={historyHandler.undo} onRedo={historyHandler.redo} />
+              <Toolbar onReset={handleReset} onExport={handleExport} editMode={editMode} history={state.history} onUndo={historyHandler.undo} onRedo={historyHandler.redo} onOpenSettings={handleOpenSettings} />
               <TableEditor entries={state.entries} onChange={handleEntryChange} onChangeSelected={handleSelectedEntriesChange} editMode={editMode} onSaveHistory={historyHandler.save} />
-              <Config options={state.options} background={state.background} onChange={handleOptionsChange} onBackgroundChange={handleBackgroundChange} editMode={editMode} onSaveHistory={historyHandler.save} />
               <VisualEditor entries={state.entries} options={state.options} background={state.background} htmlContent={htmlContent} editMode={editMode} onEntryChange={handleEntryChange} onSaveHistory={historyHandler.save} />
               <HtmlEditor htmlContent={htmlContent} importStatus={importStatus} onEditMode={handleEditMode} onHtmlContentChange={handleHtmlContentChange} />
+              <SettingsModal isOpen={isSettingsOpen} onClose={handleCloseSettings} options={state.options} background={state.background} onChange={handleOptionsChange} onBackgroundChange={handleBackgroundChange} onSaveHistory={historyHandler.save} />
             </EditMode.Provider>
           </>
         );

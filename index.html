@@ -73,6 +73,101 @@
       const defaultBackground = { filename: "", data: "" };
 
       // Raw CSS used by advanced reveal features
+      const advancedCSS = `
+        .card {
+            height: 100vp;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            padding: 10px;
+            box-sizing: border-box;
+
+            font-family: arial;
+            font-size: 20px;
+            text-align: center;
+        }
+
+        .header {
+            color: grey;
+            margin-bottom: 1em;
+        }
+
+        .frame {
+            display: flex;
+            flex-direction: column;
+            background-color: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1), 0 6px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .front {
+            background-color: AliceBlue;
+            border-top-left-radius: 15px;
+            border-top-right-radius: 15px;
+            border-bottom: 1px solid DarkSlateBlue;
+            padding: 1em;
+        }
+
+        .front.reverse {
+            background-color: MistyRose;
+            border: 1px solid IndianRed;
+        }
+
+        .back {
+            padding: 1em;
+            flex: 4 1 5em;
+        }
+
+        .mnemonic:not(:empty) {
+            position: relative;
+            background-color: LightYellow;
+            border-bottom-left-radius: 15px;
+            border-bottom-right-radius: 15px;
+            border-top: 1px solid Wheat;
+            padding: 0.5em;
+            padding-top: 1em;
+        }
+        .mnemonic:not(:empty):before {
+            content: "💡";
+            text-align: left;
+            position: absolute;
+            left: 50%;
+            top: -0.6em;
+            transform: translateX(-50%);
+        }
+
+        .source {
+            position: relative;
+            font-size: small;
+            margin-top: 1em;
+            margin-bottom: 0.5em;
+            align-self: flex-end;
+        }
+
+        .source a {
+            text-decoration: none;
+        }
+
+        .source > .default a:not(:empty):before {
+            content: "🔗 "
+        }
+
+        ul,ol,td {
+            text-align: left;
+        }
+
+        .front hr,
+        .back hr,
+        .mnemonic hr
+        {
+            position: relative;
+            left: -1em;
+            width: calc(100% + 2em);
+            border: none;
+            border-top: 1px solid LightGrey;
+        }
+      `;
       const revealCSS = `
         /****** REVEAL FUNCTIONALITY ******/
         /* USAGE
@@ -584,6 +679,8 @@
         const [snapToGrid, setSnapToGrid] = React.useState({gridSize: 1, decimals: 0});
 
         const editMode = React.useContext(EditMode);
+        const [preview, setPreview] = React.useState(false);
+        const [sequencingMask, setHighlightSequencing] = React.useState('disabled');
 
         const clamp = (x, min, max) => Math.max(0, Math.min(100, x));
 
@@ -618,6 +715,8 @@
         };
 
         const handleMouseEnter = (e, entryId, entry, ref) => {
+          if (editMode !== 'visual') return;
+
           const newHighlightedElement = { entryId, entry, target: e.target, ref, position: null, size: null, capability: null };
           setHighlightedElement(prevHighlightedElement => prevHighlightedElement?.action ? prevHighlightedElement : newHighlightedElement); // Handle previous helement here
         };
@@ -723,10 +822,21 @@
             <h2>Visual Editor</h2>
 
             <div>
-              <label><input type="checkbox" checked={revealed} onChange={(e) => setRevealed(e.target.checked)} /> Reveal</label>
+              <label><input type="checkbox" checked={preview} onChange={(e) => setPreview(e.target.checked)} /> Preview</label>
+              <label><input type="checkbox" checked={revealed} onChange={(e) => setRevealed(e.target.checked)} /> Show Answer</label>
+              <label>
+                Sequencing mask:
+                <select value={revealed ? 'default' : sequencingMask} onChange={(e) => setHighlightSequencing(e.target.value)} disabled={revealed || preview}>
+                  <option value="disabled">Disabled</option>
+                  <option value="default">Normal</option>
+                  <option value="20">Light</option>
+                  <option value="88">Strong</option>
+                  <option value="FF">Full</option>
+                </select>
+              </label>
               <label>
                 Snap to grid:
-                <select value={snapToGrid.gridSize} onChange={(e) => handleSnapToGrid(e.target.value)} disabled={editMode != 'visual'}>
+                <select value={snapToGrid.gridSize} onChange={(e) => handleSnapToGrid(e.target.value)} disabled={editMode != 'visual' || preview}>
                   <option value="0.01">None</option>
                   <option value="0.1">Tiny</option>
                   <option value="1">Small</option>
@@ -735,10 +845,11 @@
               </label>
             </div>
 
-            <div>
+            <div className="card">
+              <style>{advancedCSS}</style>
               <style>{revealCSS}</style>
 
-              { editMode == 'visual' && (
+              { !preview && (
                 <div
                   className={[
                     'reveal-container',
@@ -775,29 +886,33 @@
                           </div>
                         );
                       })}
-                      {groupIndex < entries.length - 1 && <div className="reveal-sequencing"></div>}
+                      {groupIndex < entries.length - 1 && <div className="reveal-sequencing" style={
+                        sequencingMask === 'disabled' ? { display: 'none' } : sequencingMask === 'default' ? {} : { backgroundColor: '#00AA00' + sequencingMask }
+                      }></div>}
                     </React.Fragment>
                   ))}
                 </div>
               )}
 
-              { editMode == 'html' && (
-                <div>
-                  <div className="header">Deck</div>
+              { preview && (
+                <>
+                  <div>
+                    <div className="header">Deck</div>
 
-                  <div className="frame">
-                      <div className="front">Front/Title</div>
-                      <div className="back">
-                        <Preview entries={entries} options={options} backgroundSrc={background.data || background.filename} reveal={revealed} />
-                      </div>
-                      <div className="mnemonic">Mnemonic...</div>
-                  </div>
+                    <div className="frame">
+                        <div className="front">Front/Title</div>
+                        <div className="back">
+                          <Preview entries={entries} options={options} backgroundSrc={background.data || background.filename} reveal={revealed} />
+                        </div>
+                        { !revealed && <div className="mnemonic">Mnemonic...</div> }
+                    </div>
 
-                  <div className="source">
-                    <div className="default"><a href="https://fr.wikipedia.org">Source link</a></div>
-                    Other source...
+                    <div className="source">
+                      <div className="default"><a href="https://fr.wikipedia.org">Source link</a></div>
+                      Other source...
+                    </div>
                   </div>
-                </div>
+                </>
               )}
             </div>
           </div>

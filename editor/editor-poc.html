@@ -3,13 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <title>Anki - Card-reveal Editor</title>
+    <!-- React and Babel libraries -->
     <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom-server-legacy.browser.production.min.js"></script>
-
-    <!-- Don't use this in production: -->
     <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+    <!-- Inline CSS for styling -->
     <style>
+      /* Table and reveal container styles */
       table {
         border-collapse: collapse;
       }
@@ -80,12 +81,15 @@
     </style>
   </head>
   <body>
+    <!-- Root element for React application -->
     <div id="root"></div>
     <script type="text/babel">
       /* React components */
 
+      // Context for managing edit mode
       const EditMode = React.createContext(null);
       
+      // Default configuration and options
       const defaultEntries = [];
       const defaultOptions = {
         reversible: true,
@@ -432,6 +436,7 @@
 
       /**
        * Toolbar component
+       * Provides buttons for reset, export, undo, redo, and settings
        */
       function Toolbar({ onReset, onExport, history, onUndo, onRedo, onOpenSettings }) {
         const editMode = React.useContext(EditMode);
@@ -448,7 +453,8 @@
       }
 
       /**
-       * Table editor entry component
+       * TableEditorEntry component
+       * Represents a single row in the table editor
        */
       function TableEditorEntry({ id, selected, highlighted, label, content, posX, posY, width, height, options, onChange, onHighlight, onSaveHistory }) {
         const editing = React.useRef(false);
@@ -484,6 +490,7 @@
 
       /**
        * Config component
+       * Allows configuration of global options and background settings
        */
       function Config({ options, background, onChange, onBackgroundChange, onSaveHistory }) {
         const editing = React.useRef(false);
@@ -575,6 +582,7 @@
 
       /**
        * OptionSelect component
+       * Dropdown for selecting options
        */
       function OptionSelect({value, values, defaultValue, onChange}) {
         const editMode = React.useContext(EditMode);
@@ -587,7 +595,8 @@
       }
 
       /**
-       * Table editor component
+       * TableEditor component
+       * Displays a table for managing card elements
        */
       function TableEditor({ entries, onChange, onChangeSelected, onSaveHistory }) {
         const [selectAllChecked, setSelectAllChecked] = React.useState(false);
@@ -704,7 +713,8 @@
       }).filter(value => value !== null);
 
       /**
-       * Visual editor component
+       * VisualEditor component
+       * Provides a drag-and-drop interface for editing card elements
        */
       function VisualEditor({ entries, options, background, htmlContent, onEntryChange, onSaveHistory }) {
         const [revealed, setRevealed] = React.useState(false);
@@ -954,6 +964,7 @@
 
       /**
        * Preview component
+       * Renders a preview of the card
        */
       function Preview({ entries, options, backgroundSrc, reveal }) {
         return (
@@ -983,7 +994,8 @@
       }
 
       /**
-       * HTML editor component
+       * HtmlEditor component
+       * Allows direct editing of the card's HTML
        */
       function HtmlEditor({ htmlContent, onHtmlContentChange, importStatus, onEditMode }) {
         const editMode = React.useContext(EditMode);
@@ -1009,6 +1021,10 @@
         )
       }
 
+      /**
+       * SettingsModal component
+       * Modal for configuring global settings
+       */
       function SettingsModal({ isOpen, onClose, options, background, onChange, onBackgroundChange, onSaveHistory }) {
         if (!isOpen) return null;
 
@@ -1034,6 +1050,10 @@
         );
       }
 
+      /**
+       * Main application component
+       * Combines all components and manages state
+       */
       function MyApp() {
         const initEntries = [
           [
@@ -1231,6 +1251,7 @@
           }
         };
 
+        // React hooks for managing state and effects
         const [state, dispatch] = React.useReducer(stateReducer, {
           entries: initEntries,
           options: defaultOptions,
@@ -1502,6 +1523,7 @@
         );
       }
 
+      // Render the application
       const container = document.getElementById('root');
       const root = ReactDOM.createRoot(container);
       root.render(<MyApp />);

@@ -1,0 +1,427 @@
+body {
+    margin: 0;
+    padding: 0;
+}
+
+.card {
+    height: 100vp;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    padding: 10px;
+    box-sizing: border-box;
+
+    font-family: arial;
+    font-size: 20px;
+    text-align: center;
+}
+
+.header {
+    color: grey;
+    margin-bottom: 1em;
+}
+
+.frame {
+    display: flex;
+    flex-direction: column;
+    background-color: white;
+    border-radius: 15px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1), 0 6px 20px rgba(0, 0, 0, 0.1);
+}
+
+.front {
+    background-color: AliceBlue;
+    border-top-left-radius: 15px;
+    border-top-right-radius: 15px;
+    border-bottom: 1px solid DarkSlateBlue;
+    padding: 1em;
+}
+
+.front.reverse {
+    background-color: MistyRose;
+    border: 1px solid IndianRed;
+}
+
+.back {
+    padding: 1em;
+    flex: 4 1 5em;
+}
+
+.mnemonic:not(:empty) {
+    position: relative;
+    background-color: LightYellow;
+    border-bottom-left-radius: 15px;
+    border-bottom-right-radius: 15px;
+    border-top: 1px solid Wheat;
+    padding: 0.5em;
+    padding-top: 1em;
+}
+.mnemonic:not(:empty):before {
+    content: "💡";
+    text-align: left;
+    position: absolute;
+    left: 50%;
+    top: -0.6em;
+    transform: translateX(-50%);
+}
+
+.source {
+    position: relative;
+    font-size: small;
+    margin-top: 1em;
+    margin-bottom: 0.5em;
+    align-self: flex-end;
+}
+
+.source a {
+    text-decoration: none;
+}
+
+/*
+.source > a.default {
+    display: block;
+    position: absolute;
+    left: 50%;
+    top: -1.2em;
+    height: 0.5em;
+    line-height: 0em;
+    overflow: hidden;
+    padding: 0.2em 2em 0.2em 2em;
+    background: white;
+    border: 1px solid lightgrey;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    transform: translateX(-50%);
+}
+.source > a.default:hover {
+    height: 1.5em;
+    line-height: 1.5em;
+}
+
+.source > a[href=""].default {
+    display: none;
+}
+*/
+
+.source > .default a:not(:empty):before {
+    content: "🔗 "
+}
+
+ul,ol,td {
+    text-align: left;
+}
+
+.front hr,
+.back hr,
+.mnemonic hr
+{
+    position: relative;
+    left: -1em;
+    width: calc(100% + 2em);
+    border: none;
+    border-top: 1px solid LightGrey;
+}
+
+/****** CHECKLIST ******/
+
+table.checklist {
+    width: 100%;
+    border: 1px solid lightgrey;
+    border-collapse: collapse;
+}
+
+table.checklist td:first-child::before {
+    content: "‣ ";
+    color: grey;
+}
+
+table.checklist th {
+    padding-top: 1.1em;
+}
+
+table.checklist tr:nth-child(odd) {
+    background-color: #fafafa;
+}
+
+/****** REVEAL FUNCTIONALITY ******/
+/* USAGE
+
+- Add an image with class "reveal-background":
+
+<img class="reveal-background" src="{{Src}}">
+
+- For each reveal element, add the following HTML:
+
+<div class="reveal {{hint round border centered}}" style="top: {{Top}}; left: {{Left}}; height: {{Height}}; width: {{Width}};">
+  <input id="{{ID}}" type="checkbox"></input>
+  <label for="{{ID}}">{{Label}}</label>
+  <div>{{Content}}</div>
+</div>
+
+- A generator is available at https://docs.google.com/spreadsheets/d/10xOEICIvBzzAa8FtoUb2MYhJlJLE-AfpuX9IoUlIQ0I/edit?usp=sharing
+
+- If not used in a reveal card type, manually add the following HTML around reveal items:
+
+<div class="reveal-container {{revealed centered reversible hideable front/back-gradient/transparent front/back-text-white/red}}">{...}</div>
+
+*/
+
+.reveal-container {
+    position: relative;
+    margin: 0;
+    padding: 0;
+}
+
+.reveal-container .reveal-background {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+.reveal-container img.reveal-background {
+    max-width: 100%;
+}
+
+.reveal-container > :not(.reveal-background):not(.reveal-sequencing):not(.reveal) {
+    display: none;
+}
+
+.reveal-container .reveal {
+    position: absolute;
+    margin: 0;
+    padding: 0;
+    z-index: 1;
+}
+
+.reveal-container .reveal > input {
+    margin-left:-99999px;
+}
+
+.reveal-container .reveal > input + label,
+.reveal-container .reveal > input + label + div
+{
+    display: flex;
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%;
+    z-index: 1;
+}
+
+/* NOT CHECKED */
+
+.reveal-container:not(.revealed) .reveal:not(.revealed) > input:not(:checked) + label + div,
+.reveal-container .reveal.revealed > input:checked + label + div,
+.reveal-container.revealed .reveal > input:checked + label + div
+{
+    display: none;
+}
+
+/* CHECKED or REVEALED */
+
+.reveal-container:not(.revealed) .reveal:not(.revealed) > input:checked + label,
+.reveal-container .reveal.revealed > input:not(:checked) + label,
+.reveal-container.revealed .reveal > input:not(:checked) + label
+{
+    opacity: 0;
+}
+
+.reveal-container:not(.revealed) .reveal:not(.revealed) .on-reveal {
+  display: none;
+}
+
+/* DEFAULT LOOK */
+
+.reveal-container .reveal * {
+    box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    -webkit-box-sizing: border-box;
+}
+
+.reveal-container .reveal > input + label,
+.reveal-container .reveal > input + label + div {
+    outline: none;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    font-size: 2.5vw;
+    background: white;
+    border: none;
+}
+
+.reveal-container .reveal > input + label + div {
+    pointer-events: none;
+}
+
+.reveal-container .reveal > input + label,
+.reveal-container .reveal > input + label + div,
+.reveal-container .reveal > input + label.text-black,
+.reveal-container .reveal.front-text-black > input + label,
+.reveal-container.front-text-black .reveal > input + label,
+.reveal-container .reveal > input + label + div.text-black,
+.reveal-container .reveal.back-text-black > input + label + div,
+.reveal-container.back-text-black .reveal > input + label + div
+{
+    color: black;
+    text-shadow: -1px -1px 1px white, 1px -1px 1px white, -1px 1px 1px white, 1px 1px 1px white;
+}
+
+/* ADDITIONAL LOOKS */
+.reveal-container .reveal > input + label.gradient,
+.reveal-container .reveal.front-gradient > input + label,
+.reveal-container.front-gradient .reveal > input + label,
+.reveal-container .reveal > input + label + div.gradient,
+.reveal-container .reveal.back-gradient > input + label + div,
+.reveal-container.back-gradient .reveal > input + label + div
+{
+    background: radial-gradient(circle, white, transparent);
+    border: none;
+}
+
+.reveal-container .reveal > input + label.transparent,
+.reveal-container .reveal.front-transparent > input + label,
+.reveal-container.front-transparent .reveal > input + label,
+.reveal-container .reveal > input + label + div.transparent,
+.reveal-container .reveal.back-transparent > input + label + div,
+.reveal-container.back-transparent .reveal > input + label + div
+{
+    background: transparent;
+    border: none;
+}
+
+.reveal-container .reveal > input + label.text-white,
+.reveal-container .reveal.front-text-white > input + label,
+.reveal-container.front-text-white .reveal > input + label,
+.reveal-container .reveal > input + label + div.text-white,
+.reveal-container .reveal.back-text-white > input + label + div,
+.reveal-container.back-text-white .reveal > input + label + div
+{
+    color: white;
+    text-shadow: -1px -1px 1px black, 1px -1px 1px black, -1px 1px 1px black, 1px 1px 1px black;
+}
+
+.reveal-container .reveal > input + label.text-red,
+.reveal-container .reveal.front-text-red > input + label,
+.reveal-container.front-text-red .reveal > input + label,
+.reveal-container .reveal > input + label + div.text-red,
+.reveal-container .reveal.back-text-red > input + label + div,
+.reveal-container.back-text-red .reveal > input + label + div
+{
+    color: red;
+    text-shadow: -1px -1px 1px black, 1px -1px 1px black, -1px 1px 1px black, 1px 1px 1px black;
+}
+
+/* CENTERED feature */
+
+.reveal-container .reveal.centered,
+.reveal-container.centered .reveal:not(.not-centered)
+{
+    transform: translateX(-50%) translateY(-50%);
+}
+
+/* SEQUENCING feature */
+
+.reveal-container .reveal-sequencing {
+  background: transparent;
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 100%;
+  z-index: 1;
+  display: none;
+}
+
+.reveal-container:not(.revealed) .reveal-sequencing:has(~ .reveal:not(.revealed) > input:not(:checked) + label)
+{
+  display: block;
+}
+
+/* REVERSIBLE feature */
+
+.reveal-container .reveal > input:checked + label.reversible,
+.reveal-container .reveal.reversible > input:checked + label,
+.reveal-container.reversible .reveal > input:checked + label,
+.reveal-container .reveal.revealed > input:not(:checked)+ label.reversible,
+.reveal-container .reveal.revealed.reversible > input:not(:checked) + label,
+.reveal-container.reversible .reveal.revealed > input:not(:checked) + label,
+.reveal-container.revealed .reveal > input:not(:checked)+ label.reversible,
+.reveal-container.revealed .reveal.reversible > input:not(:checked) + label,
+.reveal-container.revealed.reversible .reveal > input:not(:checked) + label
+{
+    z-index: 2;
+}
+
+/* HIDEABLE feature */
+
+.reveal-container .reveal.revealed > input:not(:checked)+ label.hideable,
+.reveal-container .reveal.revealed.hideable > input:not(:checked) + label,
+.reveal-container.hideable .reveal.revealed > input:not(:checked) + label,
+.reveal-container.revealed .reveal > input:not(:checked)+ label.hideable,
+.reveal-container.revealed .reveal.hideable > input:not(:checked) + label,
+.reveal-container.revealed.hideable .reveal > input:not(:checked) + label
+{
+    z-index: 2;
+}
+
+.reveal-container .reveal.revealed > input:checked + label.hideable,
+.reveal-container.revealed .reveal > input:checked + label.hideable,
+.reveal-container .reveal.revealed.hideable > input:checked + label,
+.reveal-container.revealed .reveal.hideable > input:checked + label,
+.reveal-container.hideable .reveal.revealed > input:checked + label,
+.reveal-container.revealed.hideable .reveal > input:checked + label
+{
+    opacity: 0;
+}
+
+/* EFIS FLAGS */
+
+.flag {
+    display: inline-block;
+    color: #ffcc00;
+    padding: 0.1em 0.2em;
+    border-radius: 2px;
+    text-shadow: 0 0 2px black;
+}
+
+.flag.border {
+    border: 1px solid #ffcc00;
+    box-shadow: 0 0 2px black, 0 0 2px black inset;
+    margin: 0.2em 0.2em;
+}
+
+.flag.plain,
+.flag.plain-black {
+    background: black;
+    text-shadow: none;
+}
+.flag.border.plain,
+.flag.border.plain-black {
+    box-shadow: 0 0 5px 2px black;
+}
+
+.flag.plain-blue {
+    background: blue;
+    text-shadow: none;
+}
+.flag.border.plain-blue {
+    box-shadow: 0 0 5px 2px blue;
+}
+
+.flag.plain-brown {
+    background: brown;
+    text-shadow: none;
+}
+.flag.border.plain-brown {
+    box-shadow: 0 0 5px 2px brown;
+}
+
+.flag.vertical {
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+}
+
+.flag.vertical > * {
+    writing-mode: horizontal-tb;
+}

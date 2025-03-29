@@ -8,11 +8,104 @@
     <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom-server-legacy.browser.production.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+
     <!-- Inline CSS for styling -->
     <style>
+      :root {
+        --font-family: "Segoe UI";
+        --font-size: 1rem;
+        --font-weight: 400;
+        --line-height: 1.5;
+        --color-primary: #05c;
+        --color-selected: rgba(0, 0, 255, 0.25);
+        --color-highlighted: rgba(255, 0, 0, 0.25);
+      }
+      body {
+        margin: 0;
+        font-family: var(--font-family);
+        font-size: var(--font-size);
+        font-weight: var(--font-weight);
+        line-height: var(--line-height);
+        -webkit-text-size-adjust: 100%;
+      }
+      .app-navbar {  
+        position: sticky;
+        top: 0;
+        z-index: 1099;
+        margin: 0;
+        background: whitesmoke;
+        border-bottom: 1px solid silver;
+        padding: 0.1em 0.5em;
+      }
+      .app-navbar h1 {
+        display: inline;
+      }
+      .app-navbar .toolbar {
+        float: right;
+        background-color: transparent;
+      }
+      .toolbar {
+        background-color: white;
+        padding: 0.5em;
+      }
+      .app-panel {
+        margin: 1em;
+      }
+
+      /* UI Elements */
+      .button-group, button, [type="button"], [type="reset"], [type="submit"] {
+        display: inline;
+        margin: 0 0.5em 0 0.5em;
+      }
+      button, [type="button"], [type="reset"], [type="submit"] {
+        border-width: 1px;
+        border-color: transparent;
+        cursor: pointer;
+        height: 2rem;
+        min-width: 2rem;
+        font-size: 1rem;
+        padding-inline: 1rem;
+        background: whitesmoke;
+        border-radius: 0.25rem;
+        box-shadow: 0 0 0px 1px silver;
+      }
+      .button-group > button, .button-group > [type="button"], .button-group > [type="reset"], .button-group > [type="submit"] {
+        margin: 0 1px 0 1px;
+      }
+      .button-group > button:not(:first-child), .button-group > [type="button"]:not(:first-child), .button-group > [type="reset"]:not(:first-child), .button-group > [type="submit"]:not(:first-child) {
+        border-top-left-radius: 0;
+        border-bottom-left-radius: 0;
+      }
+      .button-group > button:not(:last-child), .button-group > [type="button"]:not(:last-child), .button-group > [type="reset"]:not(:last-child), .button-group > [type="submit"]:not(:last-child) {
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+      }
+      button:hover, [type="button"]:hover, [type="reset"]:hover, [type="submit"]:hover {
+        background: lightgrey;
+      }
+      button:active, [type="button"]:active, [type="reset"]:active, [type="submit"]:active {
+        background: silver;
+        box-shadow: 0 0 0px 1px grey;
+      }
+      button:disabled, [type="button"]:disabled, [type="reset"]:disabled, [type="submit"]:disabled {
+        background: whitesmoke;
+        color: grey;
+        cursor: default;
+      }
+      a.button {
+        text-decoration: none;
+        color: var(--color-primary);
+      }
+      
       /* Table and reveal container styles */
       table {
+        width: 100%;
         border-collapse: collapse;
+      }
+      th, td {
+        padding: 0.5em;
+        text-align: left;
+        border: 1px solid silver;
       }
       tbody {
         border-bottom: 2px solid gray;
@@ -23,14 +116,20 @@
       .reveal-container {
         overflow: hidden;
       }
+      tr.highlighted {
+        background: rgba(255, 0, 0, 0.25);
+      }
+      tr.selected {
+        background: rgba(0, 0, 255, 0.25);
+      }
       /* Highlight styles */
       .reveal-container .reveal.selected {
-        border: 5px solid rgba(0, 0, 255, 0.25);
+        border: 5px solid var(--color-selected);
         border-radius: 5px;
         z-index: 99;
       }
       .reveal-container .reveal.highlighted {
-        border: 5px solid rgba(255, 0, 0, 0.25);
+        border: 5px solid var(--color-highlighted);
         border-radius: 5px;
         z-index: 100;
       }
@@ -83,6 +182,7 @@
   <body>
     <!-- Root element for React application -->
     <div id="root"></div>
+
     <script type="text/babel">
       /* React components */
 
@@ -442,11 +542,15 @@
         const editMode = React.useContext(EditMode);
 
         return (
-          <div>
-            <button onClick={onReset}>Reset</button>
-            <button onClick={onExport}>Copy to Clipboard</button>
-            <button onClick={onUndo} disabled={editMode != 'visual' || !history.undo}>Undo</button>
-            <button onClick={onRedo} disabled={editMode != 'visual' || !history.redo}>Redo</button>
+          <div class="toolbar">
+            <div class="button-group">
+              <button onClick={onReset}>Reset</button>
+              <button onClick={onExport}>Copy to Clipboard</button>
+            </div>
+            <div class="button-group">
+              <button onClick={onUndo} disabled={editMode != 'visual' || !history.undo}>Undo</button>
+              <button onClick={onRedo} disabled={editMode != 'visual' || !history.redo}>Redo</button>
+            </div>
             <button onClick={onOpenSettings}>Settings</button>
           </div>
         );
@@ -475,7 +579,7 @@
         };
 
         return (
-          <tr onMouseEnter={() => onHighlight(true)} onMouseLeave={() => onHighlight(false)}>
+          <tr className={highlighted? 'highlighted' : selected ? 'selected' : ''} onMouseEnter={() => onHighlight(true)} onMouseLeave={() => onHighlight(false)}>
             <td><input type="checkbox" checked={selected} onChange={(e) => onChange(id, 'selected', e.target.checked)} disabled={editMode != 'visual'} /></td>
             <td><input type="text" value={label} onChange={inputChangeHandler('label')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
             <td><input type="text" value={content} onChange={inputChangeHandler('content')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
@@ -602,6 +706,8 @@
         const [selectAllChecked, setSelectAllChecked] = React.useState(false);
         const [selectAllIndeterminate, setSelectAllIndeterminate] = React.useState(false);
         const [selectedCount, setSelectedCount] = React.useState(false);
+        const [firstSelected, setFirstSelected] = React.useState(false);
+        const [lastSelected, setLastSelected] = React.useState(false);
 
         const editMode = React.useContext(EditMode);
 
@@ -616,22 +722,35 @@
           });
         };
 
+        const handleDeselectAll = (e) => {
+          entries.forEach((group, groupIndex) => {
+            group.forEach((entry, entryIndex) => {
+              onChange('update', `${groupIndex}-${entryIndex}`, { selected: false });
+            });
+          });
+        };
+
         const handleHighlight = (id, value) => onChange('update', id, { highlighted: value });
 
         React.useEffect(() => {
-          const totalEntries = entries.flat().length;
-          const count = entries.flat().filter(entry => entry.selected).length;
+          const flattenEntries = entries.flat();
+          const totalEntries = flattenEntries.length;
+          const count = flattenEntries.filter(entry => entry.selected).length;
           setSelectedCount(count);
 
           if (count === 0) {
             setSelectAllChecked(false);
             setSelectAllIndeterminate(false);
-          } else if (count === totalEntries) {
-            setSelectAllChecked(true);
-            setSelectAllIndeterminate(false);
           } else {
-            setSelectAllChecked(false);
-            setSelectAllIndeterminate(true);
+            setFirstSelected(flattenEntries[0].selected);
+            setLastSelected(flattenEntries[totalEntries-1].selected);
+            if (count === totalEntries) {
+              setSelectAllChecked(true);
+              setSelectAllIndeterminate(false);
+            } else {
+              setSelectAllChecked(false);
+              setSelectAllIndeterminate(true);
+            }
           }
         }, [entries]);
 
@@ -644,60 +763,62 @@
         }
 
         return (
-          <div>
+          <div class="app-panel">
             <h2>Entries</h2>
-            <table>
-              <thead>
-                <tr>
-                  <th>
-                    <input
-                      type="checkbox"
-                      checked={selectAllChecked}
-                      ref={el => el && (el.indeterminate = selectAllIndeterminate)}
-                      onChange={handleSelectAll}
-                      disabled={editMode != 'visual'}
-                    />
-                  </th>
-                  <th>Label</th>
-                  <th>Content</th>
-                  <th>PosX (%)</th>
-                  <th>PosY (%)</th>
-                  <th>Width (%)</th>
-                  <th>Height (%)</th>
-                  <th>Options</th>
-                </tr>
-              </thead>
-              {entries.map((entry, groupIndex) => (
-                <tbody key={groupIndex}>
-                  {entry.map((entry, index) => (
-                    <TableEditorEntry
-                      key={index}
-                      id={`${groupIndex}-${index}`}
-                      {...entry}
-                      onChange={(id, field, value) => onChange('update', id, { [field]: value })}
-                      onHighlight={(value) => handleHighlight(`${groupIndex}-${index}`, value)}
-                      onSaveHistory={onSaveHistory}
-                    />
-                  ))}
-                </tbody>
-              ))}
-              <tfoot>
-                <tr>
-                  <td colSpan="8">
-                    <span>{selectedCount} rows selected - </span>
-                    <button onClick={selectedEntriesHandler('group')} disabled={editMode != 'visual' || !selectedCount}>Group</button>
-                    <button onClick={selectedEntriesHandler('isolate')} disabled={editMode != 'visual' || !selectedCount}>Isolate</button>
+            <div style={{overflowX: 'auto'}}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>
+                      <input
+                        type="checkbox"
+                        checked={selectAllChecked}
+                        ref={el => el && (el.indeterminate = selectAllIndeterminate)}
+                        onChange={handleSelectAll}
+                        disabled={editMode != 'visual'}
+                      />
+                    </th>
+                    <th>Label</th>
+                    <th>Content</th>
+                    <th>PosX (%)</th>
+                    <th>PosY (%)</th>
+                    <th>Width (%)</th>
+                    <th>Height (%)</th>
+                    <th>Options</th>
+                  </tr>
+                </thead>
+                {entries.map((entry, groupIndex) => (
+                  <tbody key={groupIndex}>
+                    {entry.map((entry, index) => (
+                      <TableEditorEntry
+                        key={index}
+                        id={`${groupIndex}-${index}`}
+                        {...entry}
+                        onChange={(id, field, value) => onChange('update', id, { [field]: value })}
+                        onHighlight={(value) => handleHighlight(`${groupIndex}-${index}`, value)}
+                        onSaveHistory={onSaveHistory}
+                      />
+                    ))}
+                  </tbody>
+                ))}
+              </table>
+            </div>
+            <div class="toolbar">
+              <span>{selectedCount} rows selected (<a href="#" class="button" onClick={handleDeselectAll}>clear</a>) - </span>
+              <div class="button-group">
+                <button onClick={selectedEntriesHandler('group')} disabled={editMode != 'visual' || !selectedCount}>Group</button>
+                <button onClick={selectedEntriesHandler('isolate')} disabled={editMode != 'visual' || !selectedCount}>Isolate</button>
+              </div>
 
-                    <button onClick={selectedEntriesHandler('move', 'up')} disabled={editMode != 'visual' || !selectedCount}>Move Up</button>
-                    <button onClick={selectedEntriesHandler('move', 'down')} disabled={editMode != 'visual' || !selectedCount}>Move Down</button>
+              <div class="button-group">
+                <button onClick={selectedEntriesHandler('move', 'up')} disabled={editMode != 'visual' || !selectedCount || firstSelected}>Move Up</button>
+                <button onClick={selectedEntriesHandler('move', 'down')} disabled={editMode != 'visual' || !selectedCount || lastSelected}>Move Down</button>
+              </div>
 
-                    <button onClick={selectedEntriesHandler('delete')} disabled={editMode != 'visual' || !selectedCount}>Remove</button>
+              <button onClick={selectedEntriesHandler('delete')} disabled={editMode != 'visual' || !selectedCount}>Remove</button>
 
-                    <button onClick={entryHandler('create')} disabled={editMode != 'visual'}>Add</button>
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
+              <button onClick={entryHandler('create')} disabled={editMode != 'visual'}>Add</button>
+            </div>
           </div>
         );
       }
@@ -761,11 +882,26 @@
           if (editMode !== 'visual') return;
 
           const newHighlightedElement = { entryId, entry, target: e.target, ref, position: null, size: null, capability: null };
-          setHighlightedElement(prevHighlightedElement => prevHighlightedElement?.action ? prevHighlightedElement : newHighlightedElement); // Handle previous helement here
+          setHighlightedElement(prevHighlightedElement => {
+            if (prevHighlightedElement) {
+              if (prevHighlightedElement.action) return prevHighlightedElement;
+              else onEntryChange('update', prevHighlightedElement.entryId, { highlighted: false });
+            }
+            
+            onEntryChange('update', entryId, { highlighted: true });
+            return newHighlightedElement;
+          });
         };
 
         const handleMouseLeave = () => {
-          setHighlightedElement(prevHighlightedElement => prevHighlightedElement?.action ? prevHighlightedElement : null);
+          setHighlightedElement(prevHighlightedElement => {
+            if (prevHighlightedElement) {
+              if (prevHighlightedElement.action) return prevHighlightedElement;
+              else onEntryChange('update', prevHighlightedElement.entryId, { highlighted: false });
+            }
+            
+            return null;
+          });
         };
 
         const handleMouseDown = (e, entryId, entry, ref) => {
@@ -779,12 +915,12 @@
           
           if (capability == 'drag' && !highlightedElement.action) {
             const newAction = { action: 'drag', position, size, mousePosition: getMousePosition(e, ref) };
-            setHighlightedElement(prevHighlightedElement => prevHighlightedElement ? {...prevHighlightedElement, ...newAction} : null); // TODO: No need for entryId and entry...
+            setHighlightedElement(prevHighlightedElement => prevHighlightedElement ? {...prevHighlightedElement, ...newAction} : null);
           }
 
           if (capability.startsWith('resize-')) {
             const newAction = { action: 'resize', position, size, direction: capability.split('-').pop(), mousePosition: getMousePosition(e, ref) };
-            setHighlightedElement(prevHighlightedElement => prevHighlightedElement ? {...prevHighlightedElement, ...newAction} : null); // TODO: No need for entryId and entry...
+            setHighlightedElement(prevHighlightedElement => prevHighlightedElement ? {...prevHighlightedElement, ...newAction} : null);
           }
         };
 
@@ -861,10 +997,10 @@
         };
 
         return (
-          <div id="visual-editor">
+          <div id="visual-editor" class="app-panel">
             <h2>Visual Editor</h2>
 
-            <div>
+            <div class="toolbar">
               <label><input type="checkbox" checked={preview} onChange={(e) => setPreview(e.target.checked)} /> Preview</label>
               <label><input type="checkbox" checked={revealed} onChange={(e) => setRevealed(e.target.checked)} /> Show Answer</label>
               <label>
@@ -888,7 +1024,7 @@
               </label>
             </div>
 
-            <div className="card">
+            <div className="card" style={{padding: 0}}>
               <style>{advancedCSS}</style>
               <style>{revealCSS}</style>
 
@@ -908,14 +1044,13 @@
                     <React.Fragment key={groupIndex}>
                       {group.slice().reverse().map((entry, entryIndex) => {
                         const id = `${entries.length - groupIndex - 1}-${group.length - entryIndex - 1}`;
-                        const highlighted = (highlightedElement && highlightedElement.entryId === id) || entry.highlighted;
                         return (
                           <div
                             key={entryIndex}
                             className={[
                               'reveal',
                               entry.selected ? 'selected' : null,
-                              highlighted ? 'highlighted' : null,
+                              entry.highlighted ? 'highlighted' : null,
                               ...entry.options.split(' '),
                             ].filter(c => c).join(' ')}
                             style={{ left: entry.posX+'%', top: entry.posY+'%', width: entry.width+'%', height: entry.height+'%' }}
@@ -1001,22 +1136,24 @@
         const editMode = React.useContext(EditMode);
 
         return (
-          <div id="html-editor">
+          <div id="html-editor" class="app-panel">
             <h2>HTML Editor</h2>
             
             <textarea style={{ width: '100%', height: '200px' }} value={htmlContent} onChange={(e) => onHtmlContentChange(e.target.value)} disabled={editMode != 'html'}></textarea>
             
-            { editMode == 'html' && (
-              <>
-                <button onClick={() => onEditMode('visual', true)} disabled={!importStatus.valid}>Save</button>
-                <button onClick={() => onEditMode('visual', false)}>Cancel</button>
+            <div class="toolbar">
+              { editMode == 'html' && (
+                <>
+                  <button onClick={() => onEditMode('visual', true)} disabled={!importStatus.valid}>Save</button>
+                  <button onClick={() => onEditMode('visual', false)}>Cancel</button>
 
-                <span>{importStatus.errors.join(" - ")}</span>
-                <span>{importStatus.warnings.join(" - ")}</span>
-              </>
-            ) || (
-              <button onClick={() => onEditMode('html')}>Edit...</button>
-            ) }
+                  <span>{importStatus.errors.join(" - ")}</span>
+                  <span>{importStatus.warnings.join(" - ")}</span>
+                </>
+              ) || (
+                <button onClick={() => onEditMode('html')}>Edit...</button>
+              ) }
+            </div>
           </div>
         )
       }
@@ -1063,6 +1200,8 @@
 
         const initBackground = { filename: "", data: "" };
         const initHistory = { values: [], index: 0, undo: false, redo: false };
+        
+        const [editMode, setEditMode] = React.useState('visual');
 
         /**
          * Adjusts the coordinate origin of all entries between center and top-left, depending on the value of the reverse argument.
@@ -1090,6 +1229,7 @@
         const stateReducer = (state, action) => {
           switch (action.type) {
             case 'reset': {
+              setEditMode('visual');
               return { ...state, entries: defaultEntries, options: defaultOptions, background: defaultBackground, history: initHistory };
             }
 
@@ -1261,7 +1401,6 @@
 
         const [htmlContent, setHtmlContent] = React.useState();
         const editingHtmlContent = React.useRef(false);
-        const [editMode, setEditMode] = React.useState('visual');
         const [importStatus, setImportStatus] = React.useState({ errors: [], warnings: [], valid: false });
         const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
 
@@ -1511,11 +1650,14 @@
 
         return (
           <>
-            <h1>Anki - Card-reveal Editor</h1>
             <EditMode.Provider value={editMode}>
-              <Toolbar onReset={handleReset} onExport={handleExport} editMode={editMode} history={state.history} onUndo={historyHandler.undo} onRedo={historyHandler.redo} onOpenSettings={handleOpenSettings} />
-              <TableEditor entries={state.entries} onChange={handleEntryChange} onChangeSelected={handleSelectedEntriesChange} editMode={editMode} onSaveHistory={historyHandler.save} />
-              <VisualEditor entries={state.entries} options={state.options} background={state.background} htmlContent={htmlContent} editMode={editMode} onEntryChange={handleEntryChange} onSaveHistory={historyHandler.save} />
+              <div class="app-navbar">
+                <h1 class="app-header">Anki - Card-reveal Editor</h1>
+                <Toolbar onReset={handleReset} onExport={handleExport} history={state.history} onUndo={historyHandler.undo} onRedo={historyHandler.redo} onOpenSettings={handleOpenSettings} />
+              </div>
+              
+              <TableEditor entries={state.entries} onChange={handleEntryChange} onChangeSelected={handleSelectedEntriesChange} onSaveHistory={historyHandler.save} />
+              <VisualEditor entries={state.entries} options={state.options} background={state.background} htmlContent={htmlContent} onEntryChange={handleEntryChange} onSaveHistory={historyHandler.save} />
               <HtmlEditor htmlContent={htmlContent} importStatus={importStatus} onEditMode={handleEditMode} onHtmlContentChange={handleHtmlContentChange} />
               <SettingsModal isOpen={isSettingsOpen} onClose={handleCloseSettings} options={state.options} background={state.background} onChange={handleOptionsChange} onBackgroundChange={handleBackgroundChange} onSaveHistory={historyHandler.save} />
             </EditMode.Provider>

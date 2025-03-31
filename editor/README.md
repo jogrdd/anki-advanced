@@ -33,6 +33,7 @@ At this stage, the POC focuses on card-reveal feature, which allow users to clic
 
 ### Planned Features
 
+- Improved UI (blueprintjs.com, chakra-ui.com, ant.design, react.semantic-ui.com, rsuitejs.com, ...)
 - More styling (borders, ...)
 - Per-item CSS editor
 - Item's label offset

@@ -32,15 +32,17 @@
         position: sticky;
         top: 0;
         z-index: 1099;
+      }
+      .app-navbar, .modal-title {
         margin: 0;
+        padding: 0.1em 0.5em;
         background: whitesmoke;
         border-bottom: 1px solid silver;
-        padding: 0.1em 0.5em;
       }
-      .app-navbar h1 {
+      .app-navbar h1, .modal-title h2 {
         display: inline;
       }
-      .app-navbar .toolbar {
+      .app-navbar .toolbar, .modal-title .toolbar {
         float: right;
         background-color: transparent;
       }
@@ -48,46 +50,126 @@
         background-color: white;
         padding: 0.5em;
       }
+
       .app-panel {
+        margin: 0;
+        margin-top: 1em;
+        padding: 1em;
+        padding-top: 0;
+        background: white;
+      }
+      .app-panel.sticky {
+        position: sticky;
+        top: 0.5em;
+      }
+      #table-editor {
+        z-index: 1097;
+        border-bottom: 1px solid silver;
+      }
+      #html-editor {
+        border-top: 1px solid silver;
+      }
+
+      .modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1098;
+      }
+      .modal-window {
+        background: white;
+        border-radius: 10px;
+        width: 80%;
+        max-width: 600px;
+        position: relative;
+      }
+      .modal-close {
+        position: absolute;
+        top: 0.5em;
+        right: 0.5em;
+        margin: 0;
+        box-shadow: none;
+      }
+      .modal-title {
+        padding: 0.5em 1em;
+        border-top-left-radius: 10px;
+        border-top-right-radius: 10px;
+      }
+      .modal-content {
         margin: 1em;
       }
 
       /* UI Elements */
-      .button-group, button, [type="button"], [type="reset"], [type="submit"] {
+      .button-group, button, [type="button"], [type="reset"], [type="submit"], label, select, [type="text"] {
         display: inline;
         margin: 0 0.5em 0 0.5em;
-      }
-      button, [type="button"], [type="reset"], [type="submit"] {
-        border-width: 1px;
-        border-color: transparent;
-        cursor: pointer;
         height: 2rem;
         min-width: 2rem;
         font-size: 1rem;
-        padding-inline: 1rem;
-        background: whitesmoke;
+        border-width: 1px;
+        border-color: transparent;
+      }
+      [type="text"] {
+        height: 1.8rem;
+        margin: 0;
+      }
+      label {
+        display: inline-block;
+      }
+      button, [type="button"], [type="reset"], [type="submit"], label, select, [type="text"] {
+        padding-inline: 0.5rem;
         border-radius: 0.25rem;
         box-shadow: 0 0 0px 1px silver;
       }
-      .button-group > button, .button-group > [type="button"], .button-group > [type="reset"], .button-group > [type="submit"] {
+      button, [type="button"], [type="reset"], [type="submit"], label.button, select {
+        cursor: pointer;
+        background: whitesmoke;
+      }
+      .button-group > button,
+      .button-group > [type="button"],
+      .button-group > [type="reset"],
+      .button-group > [type="submit"],
+      .button-group > label,
+      .button-group > select,
+      .button-group > [type="text"] {
+        display: inline-block;
+        vertical-align: bottom;
         margin: 0 1px 0 1px;
       }
-      .button-group > button:not(:first-child), .button-group > [type="button"]:not(:first-child), .button-group > [type="reset"]:not(:first-child), .button-group > [type="submit"]:not(:first-child) {
+      .button-group > button:not(:first-child),
+      .button-group > [type="button"]:not(:first-child),
+      .button-group > [type="reset"]:not(:first-child),
+      .button-group > [type="submit"]:not(:first-child),
+      .button-group > label:not(:first-child),
+      .button-group > select:not(:first-child),
+      .button-group > [type="text"]:not(:first-child) {
         border-top-left-radius: 0;
         border-bottom-left-radius: 0;
       }
-      .button-group > button:not(:last-child), .button-group > [type="button"]:not(:last-child), .button-group > [type="reset"]:not(:last-child), .button-group > [type="submit"]:not(:last-child) {
+      .button-group > button:not(:last-child),
+      .button-group > [type="button"]:not(:last-child),
+      .button-group > [type="reset"]:not(:last-child),
+      .button-group > [type="submit"]:not(:last-child),
+      .button-group > label:not(:last-child),
+      .button-group > select:not(:last-child),
+      .button-group > [type="text"]:not(:last-child) {
         border-top-right-radius: 0;
         border-bottom-right-radius: 0;
       }
-      button:hover, [type="button"]:hover, [type="reset"]:hover, [type="submit"]:hover {
+      button:hover, [type="button"]:hover, [type="reset"]:hover, [type="submit"]:hover, label.button:hover, select:hover {
         background: lightgrey;
       }
-      button:active, [type="button"]:active, [type="reset"]:active, [type="submit"]:active {
+      button:active, [type="button"]:active, [type="reset"]:active, [type="submit"]:active, label.button:active, select:active {
         background: silver;
         box-shadow: 0 0 0px 1px grey;
       }
-      button:disabled, [type="button"]:disabled, [type="reset"]:disabled, [type="submit"]:disabled {
+      button:disabled, [type="button"]:disabled, [type="reset"]:disabled, [type="submit"]:disabled, label.button:has(:disabled), select:disabled, [type="text"]:disabled {
         background: whitesmoke;
         color: grey;
         cursor: default;
@@ -96,6 +178,12 @@
         text-decoration: none;
         color: var(--color-primary);
       }
+      label > * {
+        vertical-align: sub;
+      }
+      select, [type="text"] {
+        vertical-align: top;
+      }
       
       /* Table and reveal container styles */
       table {
@@ -103,12 +191,17 @@
         border-collapse: collapse;
       }
       th, td {
-        padding: 0.5em;
+        padding: 2px;
         text-align: left;
         border: 1px solid silver;
+        white-space: nowrap;
+      }
+      td [type="text"] {
+        box-shadow: none;
+        background: ghostwhite;
       }
       tbody {
-        border-bottom: 2px solid gray;
+        border-bottom: 3px solid gray;
       }
       tbody:last-of-type {
         border-bottom: none;
@@ -145,37 +238,12 @@
       .reveal-container.centered .reveal.highlighted.not-centered {
           transform: translateX(-5px) translateY(-5px);
       }
-      .modal {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.5);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 1000;
+      .input-xs {
+        width: 3em;
       }
-      .modal-content {
-        background: white;
-        padding: 20px;
-        border-radius: 10px;
-        width: 80%;
-        max-width: 600px;
-        position: relative;
-      }
-      .close-button {
-        background: #007BFF;
-        color: white;
-        border: none;
-        padding: 10px 20px;
-        cursor: pointer;
-        margin-top: 20px;
-        display: block;
-        width: 100%;
-        text-align: center;
-        border-radius: 5px;
+      td .input-full {
+        width: 94%;
+        padding-inline: 2%;
       }
     </style>
   </head>
@@ -399,6 +467,13 @@
             box-sizing: border-box;
             -moz-box-sizing: border-box;
             -webkit-box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            min-width: 0;
+            min-height: 0;
+            box-shadow: none;
+            padding-inline: 0;
+            border-radius: 0;
         }
 
         .reveal-container .reveal > input + label,
@@ -581,12 +656,18 @@
         return (
           <tr className={highlighted? 'highlighted' : selected ? 'selected' : ''} onMouseEnter={() => onHighlight(true)} onMouseLeave={() => onHighlight(false)}>
             <td><input type="checkbox" checked={selected} onChange={(e) => onChange(id, 'selected', e.target.checked)} disabled={editMode != 'visual'} /></td>
-            <td><input type="text" value={label} onChange={inputChangeHandler('label')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
-            <td><input type="text" value={content} onChange={inputChangeHandler('content')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
-            <td><input type="text" value={posX} onChange={inputChangeHandler('posX')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
-            <td><input type="text" value={posY} onChange={inputChangeHandler('posY')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
-            <td><input type="text" value={width} onChange={inputChangeHandler('width')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
-            <td><input type="text" value={height} onChange={inputChangeHandler('height')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
+            <td><input type="text" class="input-full" value={label} onChange={inputChangeHandler('label')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
+            <td><input type="text" class="input-full" value={content} onChange={inputChangeHandler('content')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
+            <td>
+              <input type="text" class="input-xs" value={posX} onChange={inputChangeHandler('posX')} onFocus={handleInputFocus} disabled={editMode != 'visual'} />
+              <span>-</span>
+              <input type="text" class="input-xs" value={posY} onChange={inputChangeHandler('posY')} onFocus={handleInputFocus} disabled={editMode != 'visual'} />
+            </td>
+            <td>
+              <input type="text" class="input-xs" value={width} onChange={inputChangeHandler('width')} onFocus={handleInputFocus} disabled={editMode != 'visual'} />
+              <span>-</span>
+              <input type="text" class="input-xs" value={height} onChange={inputChangeHandler('height')} onFocus={handleInputFocus} disabled={editMode != 'visual'} />
+            </td>
             <td><input type="text" value={options} onChange={inputChangeHandler('options')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
           </tr>
         );
@@ -644,43 +725,49 @@
         };
 
         return (
-          <div>
-            <h2>Config</h2>
-
-            <h3>Background</h3>
-            <div>
-              <label>
-                Background Filename:
-                <input type="text" value={background.filename} onChange={handleBackgroundFilenameChange} onFocus={handleInputFocus} disabled={editMode != 'visual'} />
+          <>
+            <h3>Background Image</h3>
+            <div class="button-group">
+              <label for="settings-src">
+                <span>{ background.data ? 'Filename' : 'URL' }</span>
               </label>
-            </div>
-            <div>
               <input type="file" accept="image/*" ref={backgroundUploader} onChange={handleBackgroundDataChange} hidden />
+              <input id="settings-src" type="text" value={background.filename} onChange={handleBackgroundFilenameChange} onFocus={handleInputFocus} disabled={editMode != 'visual'} />
+            </div>
+            <div class="button-group">
               <button onClick={handleUploadBackground}>Upload</button>
-              <button onClick={handleClearBackgroundData}>Clear Image</button>
+              <button onClick={handleClearBackgroundData} disabled={!background.data}>Clear Data</button>
             </div>
 
             <h3>Global options</h3>
             <div>
-              <label><input type="checkbox" checked={options.reversible} onChange={checkboxHandler('reversible') } disabled={editMode != 'visual'} /> Reversible</label>
-            </div>
-            <div>
-              <label><input type="checkbox" checked={options.centered} onChange={checkboxHandler('centered') } disabled={editMode != 'visual'} /> Centered</label>
-            </div>
-            <div>
-              <label><input type="checkbox" checked={options.hideable} onChange={checkboxHandler('hideable') } disabled={editMode != 'visual'} /> Hideable</label> - <span>once revealed, content can be hidden</span>
+              <label class="button"><input type="checkbox" checked={options.reversible} onChange={checkboxHandler('reversible') } disabled={editMode != 'visual'} /><span>Reversible</span></label>
+              <label class="button"><input type="checkbox" checked={options.centered} onChange={checkboxHandler('centered') } disabled={editMode != 'visual'} /><span>Centered</span></label>
+              <label class="button" title="Once revealed, content can be hidden"><input type="checkbox" checked={options.hideable} onChange={checkboxHandler('hideable') } disabled={editMode != 'visual'} /><span>Hideable</span></label>
             </div>
             <div>
               <h4>Question style</h4>
-              <label>Background: <OptionSelect value={options['front']} values={optionValues['front']} defaultValue={defaultOptions['front']} onChange={selectHandler('front')} /></label>
-              <label>Text: <OptionSelect value={options['front-text']} values={optionValues['front-text']} defaultValue={defaultOptions['front-text']} onChange={selectHandler('front-text')} /></label>
+              <div class="button-group">
+                <label><span>Background</span></label>
+                <OptionSelect value={options['front']} values={optionValues['front']} defaultValue={defaultOptions['front']} onChange={selectHandler('front')} />
+              </div>
+              <div class="button-group">
+                <label><span>Text</span></label>
+                <OptionSelect value={options['front-text']} values={optionValues['front-text']} defaultValue={defaultOptions['front-text']} onChange={selectHandler('front-text')} />
+              </div>
             </div>
             <div>
               <h4>Answer style</h4>
-              <label>Background: <OptionSelect value={options['back']} values={optionValues['back']} defaultValue={defaultOptions['back']} onChange={selectHandler('back')} /></label>
-              <label>Text: <OptionSelect value={options['back-text']} values={optionValues['back-text']} defaultValue={defaultOptions['back-text']} onChange={selectHandler('back-text')} /></label>
+              <div class="button-group">
+                <label><span>Background</span></label>
+                <OptionSelect value={options['back']} values={optionValues['back']} defaultValue={defaultOptions['back']} onChange={selectHandler('back')} />
+              </div>
+              <div class="button-group">
+                <label><span>Text</span></label>
+                <OptionSelect value={options['back-text']} values={optionValues['back-text']} defaultValue={defaultOptions['back-text']} onChange={selectHandler('back-text')} />
+              </div>
             </div>
-          </div>
+          </>
         );
       }
 
@@ -763,9 +850,9 @@
         }
 
         return (
-          <div class="app-panel">
+          <div id="table-editor" className={['app-panel', editMode === 'visual' ? 'sticky' : null].filter(c => c).join(' ')}>
             <h2>Entries</h2>
-            <div style={{overflowX: 'auto'}}>
+            <div style={{maxHeight: '256px', overflowX: 'auto'}}>
               <table>
                 <thead>
                   <tr>
@@ -780,10 +867,8 @@
                     </th>
                     <th>Label</th>
                     <th>Content</th>
-                    <th>PosX (%)</th>
-                    <th>PosY (%)</th>
-                    <th>Width (%)</th>
-                    <th>Height (%)</th>
+                    <th>Position X-Y (%)</th>
+                    <th>Size W-H (%)</th>
                     <th>Options</th>
                   </tr>
                 </thead>
@@ -997,31 +1082,37 @@
         };
 
         return (
-          <div id="visual-editor" class="app-panel">
+          <div id="visual-editor" className={['app-panel', editMode === 'html' ? 'sticky' : null].filter(c => c).join(' ')}>
             <h2>Visual Editor</h2>
 
             <div class="toolbar">
-              <label><input type="checkbox" checked={preview} onChange={(e) => setPreview(e.target.checked)} /> Preview</label>
-              <label><input type="checkbox" checked={revealed} onChange={(e) => setRevealed(e.target.checked)} /> Show Answer</label>
-              <label>
-                Sequencing mask:
-                <select value={revealed ? 'default' : sequencingMask} onChange={(e) => setHighlightSequencing(e.target.value)} disabled={revealed || preview}>
+              <div class="button-group">
+                <label class="button"><input type="checkbox" checked={preview} onChange={(e) => setPreview(e.target.checked)} /> <span>Preview</span></label>
+                <label class="button"><input type="checkbox" checked={revealed} onChange={(e) => setRevealed(e.target.checked)} /> <span>Show Answer</span></label>
+              </div>
+              <div class="button-group">
+                <label>
+                  <span>Sequencing mask:</span>
+                </label>
+                <select id="ve-mask" value={revealed ? 'default' : sequencingMask} onChange={(e) => setHighlightSequencing(e.target.value)} disabled={revealed || preview}>
                   <option value="disabled">Disabled</option>
                   <option value="default">Normal</option>
                   <option value="20">Light</option>
                   <option value="88">Strong</option>
                   <option value="FF">Full</option>
                 </select>
-              </label>
-              <label>
-                Snap to grid:
+              </div>
+              <div class="button-group">
+                <label>
+                  <span>Snap to grid:</span>
+                </label>
                 <select value={snapToGrid.gridSize} onChange={(e) => handleSnapToGrid(e.target.value)} disabled={editMode != 'visual' || preview}>
                   <option value="0.01">None</option>
                   <option value="0.1">Tiny</option>
                   <option value="1">Small</option>
                   <option value="5">Large</option>
                 </select>
-              </label>
+              </div>
             </div>
 
             <div className="card" style={{padding: 0}}>
@@ -1136,10 +1227,8 @@
         const editMode = React.useContext(EditMode);
 
         return (
-          <div id="html-editor" class="app-panel">
+          <div id="html-editor" class="app-panel sticky">
             <h2>HTML Editor</h2>
-            
-            <textarea style={{ width: '100%', height: '200px' }} value={htmlContent} onChange={(e) => onHtmlContentChange(e.target.value)} disabled={editMode != 'html'}></textarea>
             
             <div class="toolbar">
               { editMode == 'html' && (
@@ -1154,6 +1243,8 @@
                 <button onClick={() => onEditMode('html')}>Edit...</button>
               ) }
             </div>
+
+            <textarea style={{ width: '100%', height: '400px' }} value={htmlContent} onChange={(e) => onHtmlContentChange(e.target.value)} disabled={editMode != 'html'}></textarea>
           </div>
         )
       }
@@ -1173,15 +1264,20 @@
 
         return (
           <div className="modal" onClick={handleOutsideClick}>
-            <div className="modal-content">
-              <Config
-                options={options}
-                background={background}
-                onChange={onChange}
-                onBackgroundChange={onBackgroundChange}
-                onSaveHistory={onSaveHistory}
-              />
-              <button className="close-button" onClick={onClose}>Close</button>
+            <div className="modal-window">
+              <button class="modal-close" onClick={onClose}>❌</button>
+              <div class="modal-title">
+                <h2>Settings</h2>
+              </div>
+              <div class="modal-content">
+                <Config
+                  options={options}
+                  background={background}
+                  onChange={onChange}
+                  onBackgroundChange={onBackgroundChange}
+                  onSaveHistory={onSaveHistory}
+                />
+              </div>
             </div>
           </div>
         );

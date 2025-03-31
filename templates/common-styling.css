@@ -177,6 +177,7 @@ table.checklist tr:nth-child(odd) {
     display: block;
     width: 100%;
     height: auto;
+    pointer-events: none;
 }
 .reveal-container img.reveal-background {
     max-width: 100%;
@@ -237,6 +238,13 @@ table.checklist tr:nth-child(odd) {
     box-sizing: border-box;
     -moz-box-sizing: border-box;
     -webkit-box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    min-width: 0;
+    min-height: 0;
+    box-shadow: none;
+    padding-inline: 0;
+    border-radius: 0;
 }
 
 .reveal-container .reveal > input + label,

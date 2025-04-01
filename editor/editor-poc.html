@@ -245,6 +245,20 @@
         width: 94%;
         padding-inline: 2%;
       }
+
+      ul.import-errors, ul.import-warnings {
+        list-style-type: none;
+        padding-left: 0.5em;
+        margin-top: 0;
+      }
+      ul.import-errors li::before {
+        content: "🛑";
+        margin-right: 0.5em;
+      }
+      ul.import-warnings li::before {
+        content: "⚠️";
+        margin-right: 0.5em;
+      }
     </style>
   </head>
   <body>
@@ -407,6 +421,7 @@
             display: block;
             width: 100%;
             height: auto;
+            pointer-events: none;
         }
         .reveal-container img.reveal-background {
             max-width: 100%;
@@ -620,7 +635,7 @@
           <div class="toolbar">
             <div class="button-group">
               <button onClick={onReset}>Reset</button>
-              <button onClick={onExport}>Copy to Clipboard</button>
+              <button onClick={onExport} disabled={editMode != 'visual'}>Copy to Clipboard</button>
             </div>
             <div class="button-group">
               <button onClick={onUndo} disabled={editMode != 'visual' || !history.undo}>Undo</button>
@@ -1235,18 +1250,29 @@
                 <>
                   <button onClick={() => onEditMode('visual', true)} disabled={!importStatus.valid}>Save</button>
                   <button onClick={() => onEditMode('visual', false)}>Cancel</button>
-
-                  <span>{importStatus.errors.join(" - ")}</span>
-                  <span>{importStatus.warnings.join(" - ")}</span>
                 </>
               ) || (
                 <button onClick={() => onEditMode('html')}>Edit...</button>
               ) }
             </div>
 
+            <div>
+              { importStatus.errors?.length > 0 && (
+                <ul class="import-errors">
+                  { importStatus.errors.map(error => <li>{error}</li>) }
+                </ul>
+              )}
+
+              { importStatus.warnings?.length > 0 && (
+                <ul class="import-warnings">
+                  { importStatus.warnings.map(warning => <li>{warning}</li>) }
+                </ul>
+              )}
+            </div>
+
             <textarea style={{ width: '100%', height: '400px' }} value={htmlContent} onChange={(e) => onHtmlContentChange(e.target.value)} disabled={editMode != 'html'}></textarea>
           </div>
-        )
+        );
       }
 
       /**
@@ -1299,6 +1325,9 @@
         
         const [editMode, setEditMode] = React.useState('visual');
 
+        const initImportStatus = { errors: [], warnings: [], valid: false };
+        const [importStatus, setImportStatus] = React.useState(initImportStatus);
+
         /**
          * Adjusts the coordinate origin of all entries between center and top-left, depending on the value of the reverse argument.
          * Parameters:
@@ -1326,6 +1355,7 @@
           switch (action.type) {
             case 'reset': {
               setEditMode('visual');
+              setImportStatus(initImportStatus);
               return { ...state, entries: defaultEntries, options: defaultOptions, background: defaultBackground, history: initHistory };
             }
 
@@ -1459,14 +1489,14 @@
               if (prevIndex < 0) return {...state};
 
               const values = state.history.values;
-              if (values.length <= state.history.index) {
+              if (values.length <= state.history.index && !action.clear) {
                 values.push({ entries: state.entries, options: state.options, background: state.background });
               }
 
               return {
                 ...state,
                 ...state.history.values[prevIndex],
-                history: { ...state.history, index: prevIndex, undo: prevIndex > 0, redo: true },
+                history: { ...state.history, index: prevIndex, undo: prevIndex > 0, redo: !action.clear },
               };
             };
 
@@ -1497,7 +1527,6 @@
 
         const [htmlContent, setHtmlContent] = React.useState();
         const editingHtmlContent = React.useRef(false);
-        const [importStatus, setImportStatus] = React.useState({ errors: [], warnings: [], valid: false });
         const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
 
         const handleOpenSettings = () => setIsSettingsOpen(true);
@@ -1728,18 +1757,20 @@
         };
 
         const handleEditMode = (mode, acceptImport) => {
-          editingHtmlContent.current = false;
 
           if (mode === 'html') {
             setEditMode('html');
+            editingHtmlContent.current = false;
             return;
           }
 
           if (mode === 'visual') {
-            if (!acceptImport) {
-              dispatch({ type: 'undo' });
+            if (editingHtmlContent.current && !acceptImport) {
+              dispatch({ type: 'undo', clear: true });
             }
             setEditMode('visual');
+            editingHtmlContent.current = false;
+            setImportStatus(initImportStatus);
             return;
           }
         };

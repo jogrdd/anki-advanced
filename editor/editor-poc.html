@@ -628,6 +628,9 @@
         }
       `;
 
+      const mapEntries = (entries, fn) => entries.map(group => group.map(fn));
+      const forEachEntries = (entries, fn) => entries.forEach((group, groupIndex) => group.forEach((entry, entryIndex) => fn.call(null, entry, entryIndex, groupIndex)));
+
       /**
        * Toolbar component
        * Provides buttons for reset, export, undo, redo, and settings
@@ -674,7 +677,7 @@
 
         return (
           <tr className={highlighted? 'highlighted' : selected ? 'selected' : ''} onMouseEnter={() => onHighlight(true)} onMouseLeave={() => onHighlight(false)}>
-            <td><input type="checkbox" checked={selected} onChange={(e) => onChange(id, 'selected', e.target.checked)} disabled={editMode != 'visual'} /></td>
+            <td><input type="checkbox" checked={selected} onChange={(e) => onChange(id, 'selected', e.target.checked)} /></td>
             <td><input type="text" class="input-full" value={label} onChange={inputChangeHandler('label')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
             <td><input type="text" class="input-full" value={content} onChange={inputChangeHandler('content')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
             <td>
@@ -821,19 +824,11 @@
           const checked = e.target.checked;
           setSelectAllChecked(checked);
           setSelectAllIndeterminate(false);
-          entries.forEach((group, groupIndex) => {
-            group.forEach((entry, entryIndex) => {
-              onChange('update', `${groupIndex}-${entryIndex}`, { selected: checked });
-            });
-          });
+          forEachEntries(entries, (entry, entryIndex, groupIndex) => onChange('update', `${groupIndex}-${entryIndex}`, { selected: checked }));
         };
 
         const handleDeselectAll = (e) => {
-          entries.forEach((group, groupIndex) => {
-            group.forEach((entry, entryIndex) => {
-              onChange('update', `${groupIndex}-${entryIndex}`, { selected: false });
-            });
-          });
+          forEachEntries(entries, (entry, entryIndex, groupIndex) => onChange('update', `${groupIndex}-${entryIndex}`, { selected: false }));
         };
 
         const handleHighlight = (id, value) => onChange('update', id, { highlighted: value });
@@ -881,7 +876,6 @@
                         checked={selectAllChecked}
                         ref={el => el && (el.indeterminate = selectAllIndeterminate)}
                         onChange={handleSelectAll}
-                        disabled={editMode != 'visual'}
                       />
                     </th>
                     <th>Label</th>
@@ -983,8 +977,6 @@
         };
 
         const handleMouseEnter = (e, entryId, entry, ref) => {
-          if (editMode !== 'visual') return;
-
           const newHighlightedElement = { entryId, entry, target: e.target, ref, position: null, size: null, capability: null };
           setHighlightedElement(prevHighlightedElement => {
             if (prevHighlightedElement) {
@@ -1010,7 +1002,15 @@
 
         const handleMouseDown = (e, entryId, entry, ref) => {
           if (!highlightedElement) return;
-          
+
+          if (e.ctrlKey) {
+            // Toggle selection on CTRL+Click
+            onEntryChange('update', entryId, { selected: !entry.selected });
+            return;
+          }
+
+          if (editMode !== 'visual') return;
+
           onSaveHistory();
 
           const position = { x: parseFloat(entry.posX), y: parseFloat(entry.posY) };
@@ -1100,6 +1100,17 @@
           return Math.round(value/snapToGrid.gridSize)*snapToGrid.gridSize;
         };
 
+        const handleDeselectAll = (e) => {
+          // Check if the click is outside of any reveal element
+          if (!e.target.closest('.reveal')) {
+            forEachEntries(entries, (entry, entryIndex, groupIndex) => {
+              if (entry.selected) {
+                onEntryChange('update', `${groupIndex}-${entryIndex}`, { selected: false });
+              }
+            });
+          }
+        };
+
         return (
           <div id="visual-editor" className={['app-panel'].filter(c => c).join(' ')}>
             <h2>Visual Editor</h2>
@@ -1148,6 +1159,7 @@
                   ].filter(c => c).join(' ')}
                   onMouseMove={handleMouseMove}
                   onMouseUp={handleMouseUp}
+                  onClick={handleDeselectAll}
                 >
                   <img className="reveal-background" src={background.data || background.filename} />
                   {entries.slice().reverse().map((group, groupIndex) => (
@@ -1419,17 +1431,15 @@
               let prevSelected = undefined;
               let prevGroupId = undefined;
 
-              state.entries.forEach((group, groupId) => {
-                group.forEach(entry => {
-                  const groupCondition = (action.type === 'groupSelectedEntries') && (entry.selected !== prevSelected || (!entry.selected && groupId !== prevGroupId));
-                  const isolateCondition = (action.type === 'isolateSelectedEntries') && (entry.selected || (!entry.selected && prevSelected) || groupId !== prevGroupId);
-                  if (groupCondition || isolateCondition) {
-                    entries.push([]);
-                    prevSelected = entry.selected;
-                    prevGroupId = groupId;
-                  }
-                  entries[entries.length - 1].push({...entry});
-                });
+              forEachEntries(state.entries, (entry, entryId, groupId) => {
+                const groupCondition = (action.type === 'groupSelectedEntries') && (entry.selected !== prevSelected || (!entry.selected && groupId !== prevGroupId));
+                const isolateCondition = (action.type === 'isolateSelectedEntries') && (entry.selected || (!entry.selected && prevSelected) || groupId !== prevGroupId);
+                if (groupCondition || isolateCondition) {
+                  entries.push([]);
+                  prevSelected = entry.selected;
+                  prevGroupId = groupId;
+                }
+                entries[entries.length - 1].push({...entry});
               });
 
               return { ...state, entries };
@@ -1475,7 +1485,7 @@
               const length = state.history.values.length;
               const index = state.history.index;
               const values = state.history.values.slice(0, index);
-              values.push({ entries: state.entries, options: state.options, background: state.background });
+              values.push({ entries: mapEntries(state.entries, e => ({ ...e, highlighted: false })), options: state.options, background: state.background }); // Don't save highlighted status
 
               return {
                 ...state,

@@ -42,13 +42,17 @@
       .app-navbar h1, .modal-title h2 {
         display: inline;
       }
-      .app-navbar .toolbar, .modal-title .toolbar {
+      .app-navbar .toolbar {
         float: right;
         background-color: transparent;
       }
       .toolbar {
         background-color: white;
         padding: 0.5em;
+      }
+      .app-version {
+        color: silver;
+        font-weight: 100;
       }
 
       .app-panel {
@@ -266,7 +270,8 @@
     <div id="root"></div>
 
     <script type="text/babel">
-      /* React components */
+      const APP_VERSION = '0.1';
+      const APP_TITLE = 'Anki - Advanced Card Editor';
 
       // Context for managing edit mode
       const EditMode = React.createContext(null);
@@ -302,6 +307,7 @@
             box-sizing: border-box;
 
             font-family: arial;
+            line-height: normal;
             font-size: 20px;
             text-align: center;
         }
@@ -484,8 +490,6 @@
             -webkit-box-sizing: border-box;
             margin: 0;
             padding: 0;
-            min-width: 0;
-            min-height: 0;
             box-shadow: none;
             padding-inline: 0;
             border-radius: 0;
@@ -1097,7 +1101,7 @@
         };
 
         return (
-          <div id="visual-editor" className={['app-panel', editMode === 'html' ? 'sticky' : null].filter(c => c).join(' ')}>
+          <div id="visual-editor" className={['app-panel'].filter(c => c).join(' ')}>
             <h2>Visual Editor</h2>
 
             <div class="toolbar">
@@ -1242,7 +1246,7 @@
         const editMode = React.useContext(EditMode);
 
         return (
-          <div id="html-editor" class="app-panel sticky">
+          <div id="html-editor" class="app-panel">
             <h2>HTML Editor</h2>
             
             <div class="toolbar">
@@ -1779,7 +1783,7 @@
           <>
             <EditMode.Provider value={editMode}>
               <div class="app-navbar">
-                <h1 class="app-header">Anki - Card-reveal Editor</h1>
+                <h1 class="app-header">{APP_TITLE} <span class="app-version">v{APP_VERSION}</span></h1>
                 <Toolbar onReset={handleReset} onExport={handleExport} history={state.history} onUndo={historyHandler.undo} onRedo={historyHandler.redo} onOpenSettings={handleOpenSettings} />
               </div>
               

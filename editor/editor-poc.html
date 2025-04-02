@@ -195,14 +195,30 @@
         border-collapse: collapse;
       }
       th, td {
-        padding: 2px;
+        padding: 0;
         text-align: left;
         border: 1px solid silver;
         white-space: nowrap;
       }
+      th {
+        text-align: center;
+      }
+      th label, td label,
       td [type="text"] {
+        width: 100%;
+        padding-inline: 0;
+        border: none;
+        border-radius: 0;
+        margin: 0;
+        padding: 0;
         box-shadow: none;
-        background: ghostwhite;
+        background: transparent;
+      }
+      td [type="text"]:focus {
+        background: white;
+      }
+      th label, td label {
+        text-align: center;
       }
       tbody {
         border-bottom: 3px solid gray;
@@ -241,13 +257,6 @@
       .reveal-container:not(.centered) .reveal.highlighted:not(.centered),
       .reveal-container.centered .reveal.highlighted.not-centered {
           transform: translateX(-5px) translateY(-5px);
-      }
-      .input-xs {
-        width: 3em;
-      }
-      td .input-full {
-        width: 94%;
-        padding-inline: 2%;
       }
 
       ul.import-errors, ul.import-warnings {
@@ -677,19 +686,13 @@
 
         return (
           <tr className={highlighted? 'highlighted' : selected ? 'selected' : ''} onMouseEnter={() => onHighlight(true)} onMouseLeave={() => onHighlight(false)}>
-            <td><input type="checkbox" checked={selected} onChange={(e) => onChange(id, 'selected', e.target.checked)} /></td>
-            <td><input type="text" class="input-full" value={label} onChange={inputChangeHandler('label')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
-            <td><input type="text" class="input-full" value={content} onChange={inputChangeHandler('content')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
-            <td>
-              <input type="text" class="input-xs" value={posX} onChange={inputChangeHandler('posX')} onFocus={handleInputFocus} disabled={editMode != 'visual'} />
-              <span>-</span>
-              <input type="text" class="input-xs" value={posY} onChange={inputChangeHandler('posY')} onFocus={handleInputFocus} disabled={editMode != 'visual'} />
-            </td>
-            <td>
-              <input type="text" class="input-xs" value={width} onChange={inputChangeHandler('width')} onFocus={handleInputFocus} disabled={editMode != 'visual'} />
-              <span>-</span>
-              <input type="text" class="input-xs" value={height} onChange={inputChangeHandler('height')} onFocus={handleInputFocus} disabled={editMode != 'visual'} />
-            </td>
+            <td><label><input type="checkbox" checked={selected} onChange={(e) => onChange(id, 'selected', e.target.checked)} /></label></td>
+            <td><input type="text" value={label} onChange={inputChangeHandler('label')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
+            <td><input type="text" value={content} onChange={inputChangeHandler('content')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
+            <td><input type="text" value={posX} onChange={inputChangeHandler('posX')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
+            <td><input type="text" value={posY} onChange={inputChangeHandler('posY')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
+            <td><input type="text" value={width} onChange={inputChangeHandler('width')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
+            <td><input type="text" value={height} onChange={inputChangeHandler('height')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
             <td><input type="text" value={options} onChange={inputChangeHandler('options')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
           </tr>
         );
@@ -870,19 +873,14 @@
               <table>
                 <thead>
                   <tr>
-                    <th>
-                      <input
-                        type="checkbox"
-                        checked={selectAllChecked}
-                        ref={el => el && (el.indeterminate = selectAllIndeterminate)}
-                        onChange={handleSelectAll}
-                      />
+                    <th style={{ width: 0 }}>
+                      <label><input type="checkbox" checked={selectAllChecked} ref={el => el && (el.indeterminate = selectAllIndeterminate)} onChange={handleSelectAll} /></label>
                     </th>
-                    <th>Label</th>
-                    <th>Content</th>
-                    <th>Position X-Y (%)</th>
-                    <th>Size W-H (%)</th>
-                    <th>Options</th>
+                    <th style={{ width: '30%' }}>Label</th>
+                    <th style={{ width: '30%' }}>Content</th>
+                    <th style={{ width: '10%' }} colspan="2">Position X-Y (%)</th>
+                    <th style={{ width: '10%' }} colspan="2">Size W-H (%)</th>
+                    <th style={{ width: '20%' }}>Options</th>
                   </tr>
                 </thead>
                 {entries.map((entry, groupIndex) => (

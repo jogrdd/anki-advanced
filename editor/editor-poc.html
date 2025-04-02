@@ -204,7 +204,8 @@
         text-align: center;
       }
       th label, td label,
-      td [type="text"] {
+      td [type="text"],
+      td select {
         width: 100%;
         padding-inline: 0;
         border: none;
@@ -669,6 +670,10 @@
       function TableEditorEntry({ id, selected, highlighted, label, content, posX, posY, width, height, options, onChange, onHighlight, onSaveHistory }) {
         const editing = React.useRef(false);
         const editMode = React.useContext(EditMode);
+        const [optionsList, setOptionsList] = React.useState([]);
+        const optionChoices = {
+          centered: ['centered', 'not-centered'],
+        };
 
         const handleInputFocus = (e) => {
           editing.current = false;
@@ -680,9 +685,40 @@
               editing.current = true;
               onSaveHistory();
             }
-            onChange(id, field, e.target.value);
+            
+            if (field === 'options') {
+              const newOptions = e.target.value.split(' ').filter(Boolean);
+              const newCentered = optionChoices.centered.some(v => newOptions.includes(v));
+              const newValue = [(newCentered ? null : optionSelectValue('centered')), ...newOptions].filter(Boolean).join(' ') + (e.target.value.endsWith(' ') ? ' ' : '');
+              onChange(id, field, newValue);
+            } else {
+              onChange(id, field, e.target.value);
+            }
           }
         };
+
+        const optionChangeHandler = (field) => {
+          const choices = optionChoices[field];
+          return (e) => {
+            const value = e.target.value;
+            // Clean options string and append value if not already present
+            const newOptions = [...new Set([...options.split(' ').filter(Boolean), value])].filter(o => o == value || !choices.includes(o)).join(' ');
+            // onChange option string
+            onSaveHistory();
+            onChange(id, 'options', newOptions);
+          }
+        };
+
+        const optionSelectValues = (field) => ['', ...optionChoices[field]];
+        const optionSelectValue = (field) => {
+          const optionsList = options.split(' ').filter(Boolean);
+          return optionChoices[field].find(v => optionsList.includes(v)) || '';
+        }
+        const optionValue = () => {
+          const choices = Object.values(optionChoices).flat();
+          return options.split(' ').filter(Boolean).filter(o => !choices.includes(o)).join(' ') + (options.endsWith(' ') ? ' ' : '');
+        };
+
 
         return (
           <tr className={highlighted? 'highlighted' : selected ? 'selected' : ''} onMouseEnter={() => onHighlight(true)} onMouseLeave={() => onHighlight(false)}>
@@ -693,7 +729,8 @@
             <td><input type="text" value={posY} onChange={inputChangeHandler('posY')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
             <td><input type="text" value={width} onChange={inputChangeHandler('width')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
             <td><input type="text" value={height} onChange={inputChangeHandler('height')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
-            <td><input type="text" value={options} onChange={inputChangeHandler('options')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
+            <td><OptionSelect values={optionSelectValues('centered')} value={optionSelectValue('centered')} defaultValue={''} onChange={optionChangeHandler('centered')} /></td>
+            <td><input type="text" value={optionValue()} onChange={inputChangeHandler('options')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
           </tr>
         );
       }
@@ -805,7 +842,7 @@
 
         return (
           <select value={value} onChange={onChange} disabled={editMode != 'visual'}>
-            {values.map((v, k) => <option key={k} value={v}>{v.charAt(0).toUpperCase() + v.slice(1)}{v === defaultValue ? " (default)" : ""}</option> )}
+            {values.map((v, k) => <option key={k} value={v}>{ [v.charAt(0).toUpperCase() + v.slice(1), v === defaultValue ? '(default)' : null].filter(Boolean).join(' ') }</option> )}
           </select>
         );
       }
@@ -867,7 +904,7 @@
         }
 
         return (
-          <div id="table-editor" className={['app-panel', editMode === 'visual' ? 'sticky' : null].filter(c => c).join(' ')}>
+          <div id="table-editor" className={['app-panel', editMode === 'visual' ? 'sticky' : null].filter(Boolean).join(' ')}>
             <h2>Entries</h2>
             <div style={{maxHeight: '256px', overflowX: 'auto'}}>
               <table>
@@ -880,7 +917,7 @@
                     <th style={{ width: '30%' }}>Content</th>
                     <th style={{ width: '10%' }} colspan="2">Position X-Y (%)</th>
                     <th style={{ width: '10%' }} colspan="2">Size W-H (%)</th>
-                    <th style={{ width: '20%' }}>Options</th>
+                    <th style={{ width: '20%' }} colspan="2">Options</th>
                   </tr>
                 </thead>
                 {entries.map((entry, groupIndex) => (
@@ -1110,7 +1147,7 @@
         };
 
         return (
-          <div id="visual-editor" className={['app-panel'].filter(c => c).join(' ')}>
+          <div id="visual-editor" className={['app-panel'].filter(Boolean).join(' ')}>
             <h2>Visual Editor</h2>
 
             <div class="toolbar">
@@ -1154,7 +1191,7 @@
                     revealed ? 'revealed' : null,
                     ...formatOptions(options),
                     highlightedElement?.capability ? highlightedElement.capability : null,
-                  ].filter(c => c).join(' ')}
+                  ].filter(Boolean).join(' ')}
                   onMouseMove={handleMouseMove}
                   onMouseUp={handleMouseUp}
                   onClick={handleDeselectAll}
@@ -1172,7 +1209,7 @@
                               entry.selected ? 'selected' : null,
                               entry.highlighted ? 'highlighted' : null,
                               ...entry.options.split(' '),
-                            ].filter(c => c).join(' ')}
+                            ].filter(Boolean).join(' ')}
                             style={{ left: entry.posX+'%', top: entry.posY+'%', width: entry.width+'%', height: entry.height+'%' }}
                             onMouseDown={(e) => handleMouseDown(e, id, entry, e.currentTarget.parentElement)}
                             onMouseEnter={(e) => handleMouseEnter(e, id, entry, e.currentTarget.parentElement)}
@@ -1223,7 +1260,7 @@
        */
       function Preview({ entries, options, backgroundSrc, reveal }) {
         return (
-          <div className={[ 'reveal-container', reveal ? 'revealed' : null, ...formatOptions(options), ].filter(c => c).join(' ')}>
+          <div className={[ 'reveal-container', reveal ? 'revealed' : null, ...formatOptions(options), ].filter(Boolean).join(' ')}>
             <img className="reveal-background" src={backgroundSrc} />
             {entries.slice().reverse().map((group, groupIndex) => (
               <React.Fragment key={groupIndex}>
@@ -1232,7 +1269,7 @@
                   return (
                     <div
                       key={entryIndex}
-                      className={['reveal', ...entry.options.split(' ')].filter(c => c).join(' ')}
+                      className={['reveal', ...entry.options.split(' ')].filter(Boolean).join(' ')}
                       style={{ left: entry.posX+'%', top: entry.posY+'%', width: entry.width+'%', height: entry.height+'%' }}
                     >
                       <input id={id} type="checkbox" />

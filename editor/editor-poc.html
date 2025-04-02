@@ -282,6 +282,11 @@
     <script type="text/babel">
       const APP_VERSION = '0.1';
       const APP_TITLE = 'Anki - Advanced Card Editor';
+      
+      const REGEX_TRAILING_ZEROS = /\.?0+$/;
+      const OPTION_CHOICES = {
+        centered: ['centered', 'not-centered'],
+      };
 
       // Context for managing edit mode
       const EditMode = React.createContext(null);
@@ -671,9 +676,6 @@
         const editing = React.useRef(false);
         const editMode = React.useContext(EditMode);
         const [optionsList, setOptionsList] = React.useState([]);
-        const optionChoices = {
-          centered: ['centered', 'not-centered'],
-        };
 
         const handleInputFocus = (e) => {
           editing.current = false;
@@ -688,7 +690,7 @@
             
             if (field === 'options') {
               const newOptions = e.target.value.split(' ').filter(Boolean);
-              const newCentered = optionChoices.centered.some(v => newOptions.includes(v));
+              const newCentered = OPTION_CHOICES.centered.some(v => newOptions.includes(v));
               const newValue = [(newCentered ? null : optionSelectValue('centered')), ...newOptions].filter(Boolean).join(' ') + (e.target.value.endsWith(' ') ? ' ' : '');
               onChange(id, field, newValue);
             } else {
@@ -698,7 +700,7 @@
         };
 
         const optionChangeHandler = (field) => {
-          const choices = optionChoices[field];
+          const choices = OPTION_CHOICES[field];
           return (e) => {
             const value = e.target.value;
             // Clean options string and append value if not already present
@@ -709,13 +711,13 @@
           }
         };
 
-        const optionSelectValues = (field) => ['', ...optionChoices[field]];
+        const optionSelectValues = (field) => ['', ...OPTION_CHOICES[field]];
         const optionSelectValue = (field) => {
           const optionsList = options.split(' ').filter(Boolean);
-          return optionChoices[field].find(v => optionsList.includes(v)) || '';
+          return OPTION_CHOICES[field].find(v => optionsList.includes(v)) || '';
         }
         const optionValue = () => {
-          const choices = Object.values(optionChoices).flat();
+          const choices = Object.values(OPTION_CHOICES).flat();
           return options.split(' ').filter(Boolean).filter(o => !choices.includes(o)).join(' ') + (options.endsWith(' ') ? ' ' : '');
         };
 
@@ -1088,12 +1090,15 @@
             const diff = { x: mousePosition.x - highlightedElement.mousePosition.x, y: mousePosition.y - highlightedElement.mousePosition.y };
             const newPosition = {...highlightedElement.position};
             const newSize = {...highlightedElement.size};
-            const resizeMultiplier = options.centered ? 2 : 1;
+            const entryOptions = highlightedElement.entry.options.split(' ');
+            const entryCentered = OPTION_CHOICES.centered.find(v => entryOptions.includes(v));
+            const centered = (entryCentered === 'centered') || (options.centered && entryCentered !== 'not-centered');
+            const resizeMultiplier = centered ? 2 : 1;
             const direction = highlightedElement.direction;
 
             if (direction.includes('n')) {
               newSize.height = roundToGrid(highlightedElement.size.height - diff.y * resizeMultiplier); // Improve roundToGrid
-              if (!options.centered) {
+              if (!centered) {
                 newPosition.y = roundToGrid(highlightedElement.position.y + Math.min(diff.y, highlightedElement.size.height));
               }
             }
@@ -1105,7 +1110,7 @@
             }
             if (direction.includes('w')) {
               newSize.width = roundToGrid(highlightedElement.size.width - diff.x * resizeMultiplier); // TODO: Improve roundToGrid
-              if (!options.centered) {
+              if (!centered) {
                 newPosition.x = roundToGrid(highlightedElement.position.x + Math.min(diff.x, highlightedElement.size.width));
               }
             }
@@ -1380,26 +1385,37 @@
         const [importStatus, setImportStatus] = React.useState(initImportStatus);
 
         /**
-         * Adjusts the coordinate origin of all entries between center and top-left, depending on the value of the reverse argument.
+         * Adjusts the coordinate origin of an entry between center and top-left, depending on the value of the invert argument.
          * Parameters:
-         *   - entries: An array of entry objects whose coordinates need to be adjusted.
-         *   - reverse: A boolean indicating the direction of adjustment. 
-         *        If true, changes the origin from center to top-left. 
-         *        If false, changes the origin from top-left to center.
+         *  - entry: The entry objects whose coordinates need to be adjusted.
+         *  - invert: A boolean indicating to de-center the coordinates
+         * Return:
+         *  - Modified object
          */
-        const centerEntries = (entries, reverse) => {
-          const factor = reverse ? -1 : 1;
-          const trailingZeros = /\.?0+$/;
-          return entries.map(group =>
-              group.map((entry) => {
-                const adjustments = Object.assign({},
-                  ...Object.entries({posX: entry.width, posY: entry.height}).map(v => ({
-                    [v[0]]: (parseFloat(entry[v[0]]) + factor * parseFloat(v[1])/2).toFixed(2).replace(trailingZeros, '')
-                  }))
-                )
-                return { ...entry, ...adjustments };
-              })
-            );
+        const centerEntry = (entry, invert) => {
+          const factor = invert ? -1 : 1;
+          const adjustments = Object.assign({},
+            ...Object.entries({posX: entry.width, posY: entry.height}).map(v => ({
+              [v[0]]: (parseFloat(entry[v[0]]) + factor * parseFloat(v[1])/2).toFixed(2).replace(REGEX_TRAILING_ZEROS, '')
+            }))
+          )
+          return { ...entry, ...adjustments };
+        }
+
+        /**
+         * Adjusts the coordinate origin of all entries between center and top-left, depending on the value of the invert argument.
+         * Note: This apply only to entries not having individual centering option.
+         * Parameters:
+         *  - entries: An array of entry objects whose coordinates need to be adjusted.
+         *  - invert: A boolean indicating to de-center the coordinates
+         * Return:
+         *  - Modified objects
+         */
+        const centerEntries = (entries, invert) => {
+          return mapEntries(entries, (entry) => {
+            const optionsList = entry.options.split(' ');
+            return (OPTION_CHOICES.centered.some(v => optionsList.includes(v))) ? entry : centerEntry(entry, invert);
+          });
         };
 
         const stateReducer = (state, action) => {
@@ -1432,7 +1448,18 @@
               const entries = state.entries.map((group, groupIndex) =>
                 group.map((entry, entryIndex) => {
                   const entryId = `${groupIndex}-${entryIndex}`;
-                  return entryId === action.id ? { ...entry, ...action.fields } : entry;
+                  if (entryId !== action.id) return entry;
+
+                  const newEntry = { ...entry, ...action.fields };
+
+                  // Check if ther is any option change (action.fields has an 'options' key) AND this new options is different than entry.options regarding 'centered' and 'not-centered' values.
+                  const curCentered = OPTION_CHOICES.centered.find(v => entry.options.split(' ').includes(v)) || (state.options.centered ? 'centered' : 'not-centered');
+                  const newCentered = OPTION_CHOICES.centered.find(v => newEntry.options.split(' ').includes(v)) || (state.options.centered ? 'centered' : 'not-centered');
+
+                  if (newCentered === curCentered) return newEntry;
+
+                  const adjustedEntry = centerEntry(newEntry, newCentered === 'not-centered');
+                  return adjustedEntry;
                 })
               );
               return { ...state, entries };

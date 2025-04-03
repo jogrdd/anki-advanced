@@ -15,33 +15,29 @@ At this stage, the POC focuses on card-reveal feature, which allow users to clic
 
 ### Current Features
 
-- **Visual Editor**: Drag-and-drop interface for positioning and resizing card-reveal elements
-- **Table Editor**: Tabular interface for managing card elements with fields for labels, content, position, size, and options
-- **HTML Editor**: Directly edit the HTML representation of the card for advanced customization
+- **Visual Editor**: Drag-and-drop interface for positioning and resizing card-reveal elements.
+- **Table Editor**: Tabular interface for managing card elements with fields for labels, content, position, size, and options.
+- **HTML Editor**: Directly edit the HTML representation of the card for advanced customization.
 - **Configurable Options**:
-  - Reversible reveal elements (allow or not to be hidden again, after reveal)
-  - Centered or top-left origin for positioning
-  - Hideable content after reveal
-  - Customizable front and back styles (background and text colors)
+  - Reversible reveal elements (allow or not to be hidden again, after reveal).
+  - Centered or top-left origin for positioning.
+  - Hideable content after reveal.
+  - Customizable front and back styles (background and text colors).
 - **Background Management**:
-  - Upload custom background image
-  - Clear or reset background data
-- **History Management**: Undo and redo actions
-- **Preview Mode**: View the card as it would appear in Anki
-- **Export to Clipboard**: Copy the generated HTML for use in Anki
+  - Upload custom background image.
+  - Clear or reset background data.
+- **History Management**: Undo and redo actions with keyboard shortcuts (`Ctrl+Z` and `Ctrl+Y`).
+- **Preview Mode**: View the card as it would appear in Anki.
+- **Export to Clipboard**: Copy the generated HTML for use in Anki.
+- **Sequencing Mask Options**: Visualize the order of reveal elements in the editor to help identify and fix sequencing issues.
+- **Settings Modal**:
+  - Configure global options such as reversible, centered, and hideable elements.
+  - Manage background image settings.
+- **Error Handling**: Basic validation for HTML imports.
 - **Keyboard Shortcuts**:
-  - `Ctrl+Z`: Undo
-  - `Ctrl+Y`: Redo
-  - `Ctrl+Click`: Toggle selection from visual editor
-
-### Planned Features
-
-- Improved UI (blueprintjs.com, chakra-ui.com, ant.design, react.semantic-ui.com, rsuitejs.com, ...)
-- More styling (borders, ...)
-- Per-item CSS editor
-- Item's label offset
-- Style templates
-- Cards collection
+  - `Ctrl+Z`: Undo.
+  - `Ctrl+Y`: Redo.
+  - `Ctrl+Click`: Toggle selection from visual editor.
 
 ## Project Structure
 
@@ -74,13 +70,6 @@ The Anki card templates are stored in a separate folder. These templates are adv
 - Babel is used for in-browser JSX compilation, which is slow and not suitable for large-scale applications.
 - The editor does not support direct integration with AnkiWeb or AnkiDroid.
 - Limited error handling and validation for user inputs.
-
-## Future Plans
-
-- Transition to a full React project with a proper build system.
-- Add support for importing/exporting card data directly from Anki.
-- Enhance the user interface with more intuitive controls and animations.
-- Expand the feature set to include advanced card types and templates.
 
 ## Contributing
 

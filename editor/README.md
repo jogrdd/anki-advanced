@@ -2,6 +2,8 @@
 
 This project is a proof of concept for creating a web-based card editor for Anki.
 
+Latest version published to https://jogrdd.github.io/anki-advanced/editor-poc.html
+
 The goal is to provide an advanced and user-friendly interface for designing and managing Anki cards, with features that go beyond the native Anki templates.
 The final version of this project will be a full React application, but for now, it is implemented as a single HTML page to explore the possibilities and gather feedback.
 
@@ -9,7 +11,7 @@ The final version of this project will be a full React application, but for now,
 
 At this stage, the POC focuses on card-reveal feature, which allow users to click (sequencially or not) on elements in order to reveal part of the answer.
 
-**Very Important**: the card-reveal works without any javascript. This is a pure HTML and CSS implementation based on checkbox status. It permit an easier integration to Anki without need for plugin development.
+**Very Important**: the card-reveal works without any JavaScript. This is a pure HTML and CSS implementation based on checkbox status. It permits easier integration into Anki without the need for plugin development.
 
 ### Current Features
 
@@ -30,6 +32,7 @@ At this stage, the POC focuses on card-reveal feature, which allow users to clic
 - **Keyboard Shortcuts**:
   - `Ctrl+Z`: Undo
   - `Ctrl+Y`: Redo
+  - `Ctrl+Click`: Toggle selection from visual editor
 
 ### Planned Features
 

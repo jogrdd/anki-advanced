@@ -292,6 +292,13 @@
       const EditMode = React.createContext(null);
       
       // Default configuration and options
+      const defaultEntryPosition = (centered) => {
+        const newPosition = centered ? "50" : 45;
+        return { posX: newPosition, width: "10", posY: newPosition, height: "10" };
+      }
+      const defaultEntry = (centered) => {
+        return { selected: true, highlighted: false, label: "", content: "", options: "", ...defaultEntryPosition(centered) };
+      }
       const defaultEntries = [];
       const defaultOptions = {
         reversible: true,
@@ -643,8 +650,12 @@
         }
       `;
 
+      /* Entries helper */
       const mapEntries = (entries, fn) => entries.map(group => group.map(fn));
       const forEachEntries = (entries, fn) => entries.forEach((group, groupIndex) => group.forEach((entry, entryIndex) => fn.call(null, entry, entryIndex, groupIndex)));
+
+      /* Generic filters */
+      const notNullFilter = v => (v !== null);
 
       /**
        * Toolbar component
@@ -1466,8 +1477,7 @@
             }
 
             case 'createEntry': {
-              const newPosition = state.options.centered ? "50" : 45;
-              const newEntry = { selected: true, highlighted: false, label: "", content: "", posX: newPosition, posY: newPosition, width: "10", height: "10", options: "" };
+              const newEntry = defaultEntry(state.options.centered);
 
               if (state.entries.length === 0) {
                 return { ...state, entries: [[newEntry]] };
@@ -1776,6 +1786,7 @@
               background.data = src;
             } else {
               background.filename = src;
+              if (!state.background.data) warnings.push('Background data can be uploaded from settings dialog')
             }
           }
 
@@ -1785,38 +1796,76 @@
 
           const revealElements = document.querySelectorAll('.reveal, .reveal-sequencing');
           let currentGroup = [];
-          revealElements.forEach((element) => {
+          revealElements.forEach(element => {
             if (element.classList.contains('reveal-sequencing')) {
               if (currentGroup.length > 0) {
                 entries.unshift(currentGroup);
                 currentGroup = [];
               }
             } else if (element.classList.contains('reveal')) {
+              console.log({element, input: element.querySelector('input'), label: element.querySelector('label')})
+              const inputId = element.querySelector('input')?.attributes?.id.value;
+              if (!inputId) errors.push(`Invalid element: missing input 'id' attribute`);
+              
+              const labelFor = element.querySelector('label')?.attributes?.for.value;
+              if (!labelFor) errors.push(`Invalid element: missing label 'for' attribute`);
+              
+              const id = inputId ? inputId : labelFor;
+              if (labelFor !== inputId) {
+                errors.push(`Invalid element: label 'for' (${labelFor}) and input 'id' (${inputId}) mismatch`);
+              }
+
+              const styleLeft = importPercentValue(element.style.left);
+              const styleRight = importPercentValue(element.style.right);
+              const styleWidth = importPercentValue(element.style.width);
+              const horizontalPosition = { posX: 0, width: 0 };
+              if ([styleLeft, styleRight, styleWidth].filter(notNullFilter).length >= 2) {
+                if (styleLeft !== null && styleWidth !== null) {
+                  horizontalPosition.posX = styleLeft;
+                  horizontalPosition.width = styleWidth;
+                  if (styleRight !== null) warnings.push(`Element [${id}]: ignoring 'right' property`);
+                } else if (styleRight !== null && styleWidth !== null) {
+                  horizontalPosition.posX = 100 - styleRight - styleWidth;
+                  horizontalPosition.width = styleWidth;
+                  warnings.push(`Element [${id}]: changing 'right' property to 'left' based on 'width'`);
+                } else if (styleLeft !== null && styleRight !== null) {
+                  horizontalPosition.posX = styleLeft;
+                  horizontalPosition.width = 100 - styleLeft - styleRight;
+                  warnings.push(`Element [${id}]: changing 'right' property to 'width' based on 'left'`);
+                }
+              } else {
+                errors.push(`Invalid element [${id}]: insufficient or invalid values for 'left', 'right', or 'width' properties`);
+              }
+
+              const styleTop = importPercentValue(element.style.top);
+              const styleBottom = importPercentValue(element.style.bottom);
+              const styleHeight = importPercentValue(element.style.height);
+              const verticalPosition = { posY: 0, height: 0 };
+              if ([styleTop, styleBottom, styleHeight].filter(notNullFilter).length >= 2) {
+                if (styleTop !== null && styleHeight !== null) {
+                  verticalPosition.posY = styleTop;
+                  verticalPosition.height = styleHeight;
+                  if (styleBottom !== null) warnings.push(`Element [${id}]: ignoring 'bottom' property`);
+                } else if (styleBottom !== null && styleHeight !== null) {
+                  verticalPosition.posY = 100 - styleBottom - styleHeight;
+                  verticalPosition.height = styleHeight;
+                  warnings.push(`Element [${id}]: changing 'bottom' property to 'top' based on 'height'`);
+                } else if (styleTop !== null && styleBottom !== null) {
+                  verticalPosition.posY = styleTop;
+                  verticalPosition.height = 100 - styleTop - styleBottom;
+                  warnings.push(`Element [${id}]: changing 'bottom' property to 'height' based on 'top'`);
+                }
+              } else {
+                errors.push(`Invalid element [${id}]: insufficient or invalid values for 'left', 'right', or 'width' properties`);
+              }
+
               const entry = {
                 selected: false,
                 highlighted: false,
                 label: element.querySelector('label')?.innerHTML || '',
                 content: element.querySelector('div')?.innerHTML || '',
-                posX: (() => {
-                  const value = importPercentValue(element.style.left);
-                  if (value === null) errors.push('Invalid format for posX: ' + element.style.left);
-                  return value || 0;
-                })(),
-                posY: (() => {
-                  const value = importPercentValue(element.style.top);
-                  if (value === null) errors.push('Invalid format for posY: ' + element.style.top);
-                  return value || 0;
-                })(),
-                width: (() => {
-                  const value = importPercentValue(element.style.width);
-                  if (value === null) errors.push('Invalid format for width: ' + element.style.width);
-                  return value || 0;
-                })(),
-                height: (() => {
-                  const value = importPercentValue(element.style.height);
-                  if (value === null) errors.push('Invalid format for height: ' + element.style.height);
-                  return value || 0;
-                })(),
+                ...horizontalPosition,
+                ...verticalPosition,
                 options: Array.from(element.classList).filter(cls => cls !== 'reveal').join(' '),
               };
 

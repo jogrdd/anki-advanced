@@ -12,9 +12,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     - Packaged deck
 - Advanced card templates versionning
 - More styling capability of card-reveal elements
-- Allow bottom and right attributes when importing from HTML
 - Elements copy & paste functionality with keyboard shortcuts (`Ctrl+C` and `Ctrl+V`)
 - Elements offset in table and visual editor with keyboard shortcut (`Alt+Drag`)
+- Contextual menu accessible with right-click or long press to activate functionalities like select, copy, paste, move, offset, ...
 - Style templates
 - Style customisation in table editor
 - Media storage
@@ -26,6 +26,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Improved UI (blueprintjs.com, chakra-ui.com, ant.design, react.semantic-ui.com, rsuitejs.com, ...)
 
 ### Fixed
+
+## [0.2] - 
+
+### Added
+- Allow bottom and right attributes when importing from HTML
+
+### Changed
+- Improved errors and warnings when importing from HTML (added references to element ID and more warnings)
 
 ## [0.1] - 2025-04-03
 

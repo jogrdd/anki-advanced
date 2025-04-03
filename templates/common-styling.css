@@ -14,6 +14,7 @@ body {
     box-sizing: border-box;
 
     font-family: arial;
+    line-height: normal;
     font-size: 20px;
     text-align: center;
 }
@@ -172,6 +173,7 @@ table.checklist tr:nth-child(odd) {
     position: relative;
     margin: 0;
     padding: 0;
+    user-select: none;
 }
 
 .reveal-container .reveal-background {
@@ -230,7 +232,7 @@ table.checklist tr:nth-child(odd) {
 }
 
 .reveal-container:not(.revealed) .reveal:not(.revealed) .on-reveal {
-  display: none;
+    display: none;
 }
 
 /* DEFAULT LOOK */
@@ -257,10 +259,6 @@ table.checklist tr:nth-child(odd) {
     font-size: 2.5vw;
     background: white;
     border: none;
-}
-
-.reveal-container .reveal > input + label + div {
-    pointer-events: none;
 }
 
 .reveal-container .reveal > input + label,
@@ -332,19 +330,19 @@ table.checklist tr:nth-child(odd) {
 /* SEQUENCING feature */
 
 .reveal-container .reveal-sequencing {
-  background: transparent;
-  position: absolute;
-  left: 0;
-  top: 0;
-  height: 100%;
-  width: 100%;
-  z-index: 1;
-  display: none;
+    background: transparent;
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: 100%;
+    z-index: 1;
+    display: none;
 }
 
 .reveal-container:not(.revealed) .reveal-sequencing:has(~ .reveal:not(.revealed) > input:not(:checked) + label)
 {
-  display: block;
+    display: block;
 }
 
 /* REVERSIBLE feature */

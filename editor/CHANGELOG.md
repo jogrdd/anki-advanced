@@ -25,8 +25,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Transition to a full React project with a proper build system.
 - Improved UI (blueprintjs.com, chakra-ui.com, ant.design, react.semantic-ui.com, rsuitejs.com, ...)
 
-### Fixed
-
 ## [0.2] - 
 
 ### Added
@@ -34,6 +32,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 - Improved errors and warnings when importing from HTML (added references to element ID and more warnings)
+
+### Fixed
+- CSS label min-width and min-height forced to zero
+- CSS template updated to reflect one in editor-poc.html
 
 ## [0.1] - 2025-04-03
 

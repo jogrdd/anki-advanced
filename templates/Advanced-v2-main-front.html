@@ -1,0 +1,122 @@
+<script>
+    // v1.1.8 - https://github.com/SimonLammer/anki-persistence/blob/584396fea9dea0921011671a47a0fdda19265e62/script.js
+    if(void 0===window.Persistence){var e="adv-card-2",t="_default";if(window.Persistence_sessionStorage=function(){var i=!1;try{"object"==typeof window.sessionStorage&&(i=!0,this.clear=function(){for(var t=0;t<sessionStorage.length;t++){var i=sessionStorage.key(t);0==i.indexOf(e)&&(sessionStorage.removeItem(i),t--)}},this.setItem=function(i,n){void 0==n&&(n=i,i=t),sessionStorage.setItem(e+i,JSON.stringify(n))},this.getItem=function(i){return void 0==i&&(i=t),JSON.parse(sessionStorage.getItem(e+i))},this.removeItem=function(i){void 0==i&&(i=t),sessionStorage.removeItem(e+i)},this.getAllKeys=function(){for(var t=[],i=Object.keys(sessionStorage),n=0;n<i.length;n++){var s=i[n];0==s.indexOf(e)&&t.push(s.substring(e.length,s.length))}return t.sort()})}catch(n){}this.isAvailable=function(){return i}},window.Persistence_windowKey=function(i){var n=window[i],s=!1;"object"==typeof n&&(s=!0,this.clear=function(){n[e]={}},this.setItem=function(i,s){void 0==s&&(s=i,i=t),n[e][i]=s},this.getItem=function(i){return void 0==i&&(i=t),void 0==n[e][i]?null:n[e][i]},this.removeItem=function(i){void 0==i&&(i=t),delete n[e][i]},this.getAllKeys=function(){return Object.keys(n[e])},void 0==n[e]&&this.clear()),this.isAvailable=function(){return s}},window.Persistence=new Persistence_sessionStorage,Persistence.isAvailable()||(window.Persistence=new Persistence_windowKey("py")),!Persistence.isAvailable()){var i=window.location.toString().indexOf("title"),n=window.location.toString().indexOf("main",i);i>0&&n>0&&n-i<10&&(window.Persistence=new Persistence_windowKey("qt"))}}
+</script>
+
+<div class="adv-card {{Card}}">
+    <div class="header">{{Deck}}</div>
+    <div class="test">-</div>
+
+    <div class="frame">
+        <div class="front"><div class="content">{{Front}}</div></div>
+        <div class="back q">
+            <div class="background">{{Background}}</div>
+            <div class="content">{{Back}}</div>
+            {{#Occlusions}}<div class="occlusions default-hidden">{{Occlusions}}</div>{{/Occlusions}}
+        </div>
+        {{#Hint}}<div class="hint"><input id="adv-hint" type="checkbox" /><label for="adv-hint">💡</label><div class="content">{{Hint}}</div></div>{{/Hint}}
+    </div>
+
+    <div class="source">
+        {{#SourceLink}}<div class="content"><a href="{{text:SourceLink}}">{{Source}}{{^Source}}{{text:SourceLink}}{{/Source}}</a></div>{{/SourceLink}}
+        {{^SourceLink}}{{#Source}}<div class="content">{{Source}}</div>{{/Source}}{{/SourceLink}}
+    </div>
+
+    <pre class="debug"></pre>
+</div>
+
+<script>
+    function debug(str) {
+        // Find the element with the class 'debug' inside a <pre> tag and set its textContent
+        var debugElement = document.querySelector('.adv-card pre.debug');
+        if (debugElement) {
+            debugElement.textContent = str;
+        } else {
+            console.warn("Element 'pre.debug' was not found.");
+        }
+    }
+
+    /** Occlusion feature **/
+    (function() {
+        const elements = document.querySelectorAll('.adv-card .occlusions .occlusion');
+        elements.forEach(e => {
+            e.addEventListener('click', () => {
+                const opacity = parseFloat(window.getComputedStyle(e).opacity);
+                e.style.opacity = opacity ? '0' : '1';
+            });
+        });
+        
+        debug(Array.from(elements).map(o => o.outerHTML).join('\n'));
+    })();
+
+    /** Persistence test (FRONT side) **/
+    (function() {
+        const test = (value) => {
+            const div = document.querySelector('.test');
+            if (!div) {
+                console.warn('No element with class "test" found.');
+                return;
+            }
+
+            div.textContent = value;
+        }
+
+        var number = 12345;                 // Default
+        if (Persistence.isAvailable()) {    // Check whether Persistence works on the client.
+            number = Persistence.getItem(); // Retrieve a previously stored number and override the default. (In case this is executed on the backside as well by {{FrontSide}})
+            if (number == null) {           // If there was no number stored previously:
+                number = Math.floor(Math.random() * 1000000);   //   1. Create a random number and override the default.
+                Persistence.setItem(number);                    //   2. Store that number
+            }
+        }
+        test(number);
+    })();
+
+    /** DOM Debug **/
+    async function debugDOM() {
+        // Remove existing debug data
+        debug('');
+
+        // Select all external CSS files referenced by <link rel="stylesheet">
+        const linkElements = document.querySelectorAll('link[rel="stylesheet"]');
+
+        if (linkElements.length > 0) {
+        const cssPromises = Array.from(linkElements).map(async link => {
+            const cssUrl = link.href;
+            try {
+                const response = await fetch(cssUrl);
+            if (!response.ok) {
+                debug(`HTTP error: ${response.status}`);
+                throw new Error(`HTTP error: ${response.status}`);
+            }
+            const cssText = await response.text();
+
+            // Create a <style> element and append the fetched CSS
+            const styleElement = document.createElement('style');
+            styleElement.textContent = cssText;
+            document.head.appendChild(styleElement);
+
+            // Optionally, remove the original link element
+            link.remove();
+
+            return '';
+            } catch (error) {
+                debug(`Error fetching CSS from ${cssUrl}: ${error.message}`);
+            }
+        });
+
+        const cssErrors = await Promise.all(cssPromises);
+        cssErrors.forEach(errorMsg => {
+            if (errorMsg) {
+                outputContent += errorMsg + "\n";
+            }
+        });
+        }
+
+        // Extract the entire DOM (including inline CSS)
+        let outputContent = document.documentElement.outerHTML;
+
+        debug(outputContent);
+    }
+    //debugDOM();
+</script>

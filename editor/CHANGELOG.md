@@ -20,6 +20,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Media storage
 - Card storage
 - Import packaged deck from Anki
+- Compatibility with native Image Occlusion
+- Green mark when successfully revealed all items
+- Progress bar on top of card-reval
 
 ### Changed
 - Transition to a full React project with a proper build system.

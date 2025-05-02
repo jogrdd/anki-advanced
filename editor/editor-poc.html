@@ -280,7 +280,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-      const APP_VERSION = '0.1';
+      const APP_VERSION = '0.2';
       const APP_TITLE = 'Anki - Advanced Card Editor';
       
       const REGEX_TRAILING_ZEROS = /\.?0+$/;
@@ -1258,7 +1258,7 @@
                         <div className="back">
                           <Preview entries={entries} options={options} backgroundSrc={background.data || background.filename} reveal={revealed} />
                         </div>
-                        { !revealed && <div className="mnemonic">Mnemonic...</div> }
+                        { revealed && <div className="mnemonic">Mnemonic...</div> }
                     </div>
 
                     <div className="source">

@@ -11,8 +11,13 @@ const router = createHashRouter([
   { path: "/", Component: App },
 ]);
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <RouterProvider router={router} />
-  </StrictMode>
-);
+const rootElement = document.getElementById('root')
+if (rootElement) {
+  createRoot(rootElement).render(
+    <StrictMode>
+      <RouterProvider router={router} />
+    </StrictMode>
+  );
+} else {
+  throw new Error("Root element not found");
+}

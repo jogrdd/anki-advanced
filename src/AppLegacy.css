@@ -1,0 +1,262 @@
+:root {
+  --font-family: "Segoe UI";
+  --font-size: 1rem;
+  --font-weight: 400;
+  --line-height: 1.5;
+  --color-primary: #05c;
+  --color-selected: rgba(0, 0, 255, 0.25);
+  --color-highlighted: rgba(255, 0, 0, 0.25);
+}
+body {
+  margin: 0;
+  font-family: var(--font-family);
+  font-size: var(--font-size);
+  font-weight: var(--font-weight);
+  line-height: var(--line-height);
+  -webkit-text-size-adjust: 100%;
+}
+.app-navbar {  
+  position: sticky;
+  top: 0;
+  z-index: 1099;
+}
+.app-navbar, .modal-title {
+  margin: 0;
+  padding: 0.1em 0.5em;
+  background: whitesmoke;
+  border-bottom: 1px solid silver;
+}
+.app-navbar h1, .modal-title h2 {
+  display: inline;
+}
+.app-navbar .toolbar {
+  float: right;
+  background-color: transparent;
+}
+.toolbar {
+  background-color: white;
+  padding: 0.5em;
+}
+.app-version {
+  color: silver;
+  font-weight: 100;
+}
+
+.app-panel {
+  margin: 0;
+  margin-top: 1em;
+  padding: 1em;
+  padding-top: 0;
+  background: white;
+}
+.app-panel.sticky {
+  position: sticky;
+  top: 0.5em;
+}
+#table-editor {
+  z-index: 1097;
+  border-bottom: 1px solid silver;
+}
+#html-editor {
+  border-top: 1px solid silver;
+}
+
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1098;
+}
+.modal-window {
+  background: white;
+  border-radius: 10px;
+  width: 80%;
+  max-width: 600px;
+  position: relative;
+}
+.modal-close {
+  position: absolute;
+  top: 0.5em;
+  right: 0.5em;
+  margin: 0;
+  box-shadow: none;
+}
+.modal-title {
+  padding: 0.5em 1em;
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+}
+.modal-content {
+  margin: 1em;
+}
+
+/* UI Elements */
+.button-group, button, [type="button"], [type="reset"], [type="submit"], label, select, [type="text"] {
+  display: inline;
+  margin: 0 0.5em 0 0.5em;
+  height: 2rem;
+  min-width: 2rem;
+  font-size: 1rem;
+  border-width: 1px;
+  border-color: transparent;
+}
+[type="text"] {
+  height: 1.75rem;
+  margin: 0;
+}
+label {
+  display: inline-block;
+}
+button, [type="button"], [type="reset"], [type="submit"], label, select, [type="text"] {
+  padding-inline: 0.5rem;
+  border-radius: 0.25rem;
+  box-shadow: 0 0 0px 1px silver;
+}
+button, [type="button"], [type="reset"], [type="submit"], label.button, select {
+  cursor: pointer;
+  background: whitesmoke;
+}
+.button-group > button,
+.button-group > [type="button"],
+.button-group > [type="reset"],
+.button-group > [type="submit"],
+.button-group > label,
+.button-group > select,
+.button-group > [type="text"] {
+  display: inline-block;
+  vertical-align: bottom;
+  margin: 0 1px 0 1px;
+}
+.button-group > button:not(:first-child),
+.button-group > [type="button"]:not(:first-child),
+.button-group > [type="reset"]:not(:first-child),
+.button-group > [type="submit"]:not(:first-child),
+.button-group > label:not(:first-child),
+.button-group > select:not(:first-child),
+.button-group > [type="text"]:not(:first-child) {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+.button-group > button:not(:last-child),
+.button-group > [type="button"]:not(:last-child),
+.button-group > [type="reset"]:not(:last-child),
+.button-group > [type="submit"]:not(:last-child),
+.button-group > label:not(:last-child),
+.button-group > select:not(:last-child),
+.button-group > [type="text"]:not(:last-child) {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+button:hover, [type="button"]:hover, [type="reset"]:hover, [type="submit"]:hover, label.button:hover, select:hover {
+  background: lightgrey;
+}
+button:active, [type="button"]:active, [type="reset"]:active, [type="submit"]:active, label.button:active, select:active {
+  background: silver;
+  box-shadow: 0 0 0px 1px grey;
+}
+button:disabled, [type="button"]:disabled, [type="reset"]:disabled, [type="submit"]:disabled, label.button:has(:disabled), select:disabled, [type="text"]:disabled {
+  background: whitesmoke;
+  color: grey;
+  cursor: default;
+}
+a.button {
+  text-decoration: none;
+  color: var(--color-primary);
+}
+label > * {
+  vertical-align: sub;
+}
+select, [type="text"] {
+  vertical-align: top;
+}
+
+/* Table and reveal container styles */
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+th, td {
+  padding: 0;
+  text-align: left;
+  border: 1px solid silver;
+  white-space: nowrap;
+}
+th {
+  text-align: center;
+}
+th label, td label,
+td [type="text"],
+td select {
+  width: 100%;
+  padding-inline: 0;
+  border: none;
+  border-radius: 0;
+  margin: 0;
+  padding: 0;
+  box-shadow: none;
+  background: transparent;
+}
+td [type="text"]:focus {
+  background: white;
+}
+th label, td label {
+  text-align: center;
+}
+tbody {
+  border-bottom: 3px solid gray;
+}
+tbody:last-of-type {
+  border-bottom: none;
+}
+.reveal-container {
+  overflow: hidden;
+}
+tr.highlighted {
+  background: rgba(255, 0, 0, 0.25);
+}
+tr.selected {
+  background: rgba(0, 0, 255, 0.25);
+}
+/* Highlight styles */
+.reveal-container .reveal.selected {
+  border: 5px solid var(--color-selected);
+  border-radius: 5px;
+  z-index: 99;
+}
+.reveal-container .reveal.highlighted {
+  border: 5px solid var(--color-highlighted);
+  border-radius: 5px;
+  z-index: 100;
+}
+.reveal-container.drag * { cursor: move; }
+.reveal-container.resize-n, .reveal-container.resize-n *, .reveal-container.resize-s, .reveal-container.resize-s * { cursor: ns-resize; }
+.reveal-container.resize-e, .reveal-container.resize-e *, .reveal-container.resize-w, .reveal-container.resize-w * { cursor: ew-resize; }
+.reveal-container.resize-ne, .reveal-container.resize-ne *, .reveal-container.resize-sw, .reveal-container.resize-sw * { cursor: nesw-resize; }
+.reveal-container.resize-nw, .reveal-container.resize-nw *, .reveal-container.resize-se, .reveal-container.resize-se * { cursor: nwse-resize; }
+
+.reveal-container:not(.centered) .reveal.selected:not(.centered),
+.reveal-container.centered .reveal.selected.not-centered,
+.reveal-container:not(.centered) .reveal.highlighted:not(.centered),
+.reveal-container.centered .reveal.highlighted.not-centered {
+    transform: translateX(-5px) translateY(-5px);
+}
+
+ul.import-errors, ul.import-warnings {
+  list-style-type: none;
+  padding-left: 0.5em;
+  margin-top: 0;
+}
+ul.import-errors li::before {
+  content: "🛑";
+  margin-right: 0.5em;
+}
+ul.import-warnings li::before {
+  content: "⚠️";
+  margin-right: 0.5em;
+}

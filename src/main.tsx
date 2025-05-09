@@ -4,11 +4,12 @@ import {
 } from "react-router";
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import './index.css'
 import App from './App.tsx'
+import AppLegacy from "./AppLegacy.tsx";
 
 const router = createHashRouter([
   { path: "/", Component: App },
+  { path: "/editor-poc", Component: AppLegacy },
 ]);
 
 const rootElement = document.getElementById('root')

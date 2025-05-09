@@ -10,9 +10,9 @@ function App() {
         </a>
       </div>
       <h1>Anki Advanced</h1>
-      <a href='/anki-advanced/editor/editor-poc.html'>Advanced Card Editor (legacy)</a>
+      <a href='./editor-poc.html'>Advanced Card Editor (legacy)</a>
     </>
   )
 }
 
-export default App
+export default App;

@@ -25,8 +25,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Progress bar on top of card-reval
 
 ### Changed
-- Transition to a full React project with a proper build system.
 - Improved UI (blueprintjs.com, chakra-ui.com, ant.design, react.semantic-ui.com, rsuitejs.com, ...)
+
+## [0.3] - 2025-05-09
+
+### Added
+- New logo
+- Front page with a link to the editor
+
+### Changed
+- Transition to a full React project with a proper build system.
 
 ## [0.2] - 2025-05-03
 

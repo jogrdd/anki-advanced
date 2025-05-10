@@ -1,28 +1,97 @@
-import React from 'react';
+import React, { type JSX } from 'react';
 import ReactDOMServer from 'react-dom/server';
 import appStyle from './AppLegacy.css?inline';
+import DOMPurify from 'dompurify';
+
+interface Options {
+  reversible: boolean;
+  centered: boolean;
+  hideable: boolean;
+  front: string;
+  back: string;
+  'front-text': string;
+  'back-text': string;
+};
+
+interface Background {
+  filename?: string;
+  data?: string | null;
+}
+
+interface Position {
+  posX: string;
+  posY: string;
+  width: string;
+  height: string;
+}
+
+interface Entry extends Position {
+  selected: boolean;
+  highlighted: boolean;
+  label: string;
+  content: string;
+  options: string;
+}
+
+type EntryId = `${number}-${number}`;
+type EntryGroup = Array<Entry>;
+type Entries = Array<EntryGroup>;
+
+interface EntryAction {
+  create: [];
+  update: [EntryId, Partial<Entry>];
+}
+interface SelectedEntryAction {
+  group: [];
+  isolate: [];
+  move: ['up' | 'down'];
+  delete: [];
+}
+interface HistoryValue {
+  entries: Entries;
+  options: Options;
+  background: Background;
+};
+
+interface History {
+  values: HistoryValue[];
+  index: number;
+  undo: boolean;
+  redo: boolean;
+};
+
+interface ImportStatus {
+  valid: boolean;
+  errors?: string[];
+  warnings?: string[];
+};
+
 
 const APP_VERSION = '0.3';
 const APP_TITLE = 'Anki - Advanced Card Editor';
 
 const REGEX_TRAILING_ZEROS = /\.?0+$/;
-const OPTION_CHOICES = {
+const OPTION_CHOICES: OptionChoices = {
   centered: ['centered', 'not-centered'],
 };
+interface OptionChoices {
+  centered: Array<'centered' | 'not-centered'>;
+}
 
 // Context for managing edit mode
-const EditMode = React.createContext(null);
+type EditMode = 'visual' | 'html';
+const EditMode = React.createContext<EditMode>('visual');
 
 // Default configuration and options
-const defaultEntryPosition = (centered) => {
-  const newPosition = centered ? "50" : 45;
-  return { posX: newPosition, width: "10", posY: newPosition, height: "10" };
+function defaultEntryPosition(centered: boolean): Position {
+  const newPosition = centered ? '50' : '45';
+  return { posX: newPosition, width: '10', posY: newPosition, height: '10' };
 }
-const defaultEntry = (centered) => {
+function defaultEntry(centered: boolean): Entry {
   return { selected: true, highlighted: false, label: "", content: "", options: "", ...defaultEntryPosition(centered) };
 }
-const defaultEntries = [];
-const defaultOptions = {
+const defaultEntries: Entries = [];
+const defaultOptions: Options = {
   reversible: true,
   centered: true,
   hideable: false,
@@ -37,10 +106,10 @@ const optionValues = {
   'front-text': ['black', 'white', 'red'],
   'back-text': ['black', 'white', 'red'],
 };
-const defaultBackground = { filename: "", data: "" };
+const defaultBackground: Background = { filename: "", data: "" };
 
 // Raw CSS used by advanced reveal features, see https://docs.ankiweb.net/editing.html
-const advancedCSS = `
+const advancedCSS: string = `
   .card {
       height: 100vp;
       flex: 1;
@@ -266,6 +335,17 @@ const revealCSS = `
   }
 
   /* ADDITIONAL LOOKS */
+  .reveal-container .reveal > input + label.black,
+  .reveal-container .reveal.front-black > input + label,
+  .reveal-container.front-black .reveal > input + label,
+  .reveal-container .reveal > input + label + div.black,
+  .reveal-container .reveal.back-black > input + label + div,
+  .reveal-container.back-black .reveal > input + label + div
+  {
+      background: black;
+      border: none;
+  }
+  
   .reveal-container .reveal > input + label.gradient,
   .reveal-container .reveal.front-gradient > input + label,
   .reveal-container.front-gradient .reveal > input + label,
@@ -375,31 +455,60 @@ const revealCSS = `
 `;
 
 /* Entries helper */
-const mapEntries = (entries, fn) => entries.map(group => group.map(fn));
-const forEachEntries = (entries, fn) => entries.forEach((group, groupIndex) => group.forEach((entry, entryIndex) => fn.call(null, entry, entryIndex, groupIndex)));
+function mapEntries(
+  entries: Entries,
+  fn: (entry: Entry, entryIndex: number, groupIndex: number) => Entry
+): Entries {
+  return entries.map((group, groupIndex) =>
+    group.map((entry, entryIndex) => fn(entry, entryIndex, groupIndex))
+  );
+}
+function forEachEntries(
+  entries: Entries,
+  fn: (entry: Entry, entryIndex: number, groupIndex: number) => void
+): void {
+  entries.forEach((group, groupIndex) => {
+    group.forEach((entry, entryIndex) => {
+      fn.call(null, entry, entryIndex, groupIndex);
+    });
+  });
+}
 
 /* Generic filters */
-const notNullFilter = v => (v !== null);
+function notNullFilter(v: unknown): boolean {
+  return (v !== null);
+}
+
+function entryId(groupIndex: number, entryIndex: number): EntryId {
+  return [groupIndex, entryIndex].join('-') as `${number}-${number}`;
+}
 
 /**
  * Toolbar component
  * Provides buttons for reset, export, undo, redo, and settings
  */
-function Toolbar({ onReset, onExport, history, onUndo, onRedo, onOpenSettings }) {
-  const editMode = React.useContext(EditMode);
+function Toolbar({ onReset, onExport, history, onUndo, onRedo, onOpenSettings }: {
+  onReset: () => void;
+  onExport: () => void;
+  history: { undo: boolean; redo: boolean };
+  onUndo: () => void;
+  onRedo: () => void;
+  onOpenSettings: () => void;
+}): JSX.Element {
+  const editMode = React.use(EditMode);
 
   return (
-    <div class="toolbar">
-      <button><a download class="button" href="./Advanced Note Types.apkg">Download</a></button>
-      <div class="button-group">
-        <button onClick={onReset}>Reset</button>
-        <button onClick={onExport} disabled={editMode != 'visual'}>Copy to Clipboard</button>
+    <div className="toolbar">
+      <button type='button'><a download className="button" href="./Advanced Note Types.apkg">Download</a></button>
+      <div className="button-group">
+        <button type='button' onClick={onReset}>Reset</button>
+        <button type='button' onClick={onExport} disabled={editMode != 'visual'}>Copy to Clipboard</button>
       </div>
-      <div class="button-group">
-        <button onClick={onUndo} disabled={editMode != 'visual' || !history.undo}>Undo</button>
-        <button onClick={onRedo} disabled={editMode != 'visual' || !history.redo}>Redo</button>
+      <div className="button-group">
+        <button type='button' onClick={onUndo} disabled={editMode != 'visual' || !history.undo}>Undo</button>
+        <button type='button' onClick={onRedo} disabled={editMode != 'visual' || !history.redo}>Redo</button>
       </div>
-      <button onClick={onOpenSettings}>Settings</button>
+      <button type='button' onClick={onOpenSettings}>Settings</button>
     </div>
   );
 }
@@ -408,17 +517,30 @@ function Toolbar({ onReset, onExport, history, onUndo, onRedo, onOpenSettings })
  * TableEditorEntry component
  * Represents a single row in the table editor
  */
-function TableEditorEntry({ id, selected, highlighted, label, content, posX, posY, width, height, options, onChange, onHighlight, onSaveHistory }) {
+function TableEditorEntry({ id, selected, highlighted, label, content, posX, posY, width, height, options, onChange, onHighlight, onSaveHistory }: {
+  id: EntryId;
+  selected: boolean;
+  highlighted: boolean;
+  label: string;
+  content: string;
+  posX: string;
+  posY: string;
+  width: string;
+  height: string;
+  options: string;
+  onChange: <K extends keyof Entry>(id: EntryId, field: K, value: Entry[K]) => void;
+  onHighlight: (value: boolean) => void;
+  onSaveHistory: () => void;
+}): JSX.Element {
   const editing = React.useRef(false);
-  const editMode = React.useContext(EditMode);
-  const [optionsList, setOptionsList] = React.useState([]);
+  const editMode = React.use(EditMode);
 
-  const handleInputFocus = (e) => {
+  const handleInputFocus = () => {
     editing.current = false;
   };
   
-  const inputChangeHandler = (field) => {
-    return (e) => {
+  const inputChangeHandler = (field: keyof Entry) => {
+    return (e: React.ChangeEvent<HTMLInputElement>) => {
       if (!editing.current) {
         editing.current = true;
         onSaveHistory();
@@ -435,20 +557,22 @@ function TableEditorEntry({ id, selected, highlighted, label, content, posX, pos
     }
   };
 
-  const optionChangeHandler = (field) => {
+  const optionChangeHandler = (field: keyof OptionChoices) => {
     const choices = OPTION_CHOICES[field];
-    return (e) => {
+    return (e: React.ChangeEvent<HTMLInputElement|HTMLSelectElement>) => {
       const value = e.target.value;
       // Clean options string and append value if not already present
-      const newOptions = [...new Set([...options.split(' ').filter(Boolean), value])].filter(o => o == value || !choices.includes(o)).join(' ');
+      const newOptions = [...new Set([...options.split(' ').filter(Boolean), value])].filter(o => {
+        return (o === value) || !(choices as string[]).includes(o);
+      }).join(' ');
       // onChange option string
       onSaveHistory();
       onChange(id, 'options', newOptions);
     }
   };
 
-  const optionSelectValues = (field) => ['', ...OPTION_CHOICES[field]];
-  const optionSelectValue = (field) => {
+  const optionSelectValues = (field: keyof OptionChoices) => ['', ...OPTION_CHOICES[field]];
+  const optionSelectValue = (field: keyof OptionChoices) => {
     const optionsList = options.split(' ').filter(Boolean);
     return OPTION_CHOICES[field].find(v => optionsList.includes(v)) || '';
   }
@@ -459,8 +583,8 @@ function TableEditorEntry({ id, selected, highlighted, label, content, posX, pos
 
 
   return (
-    <tr className={highlighted? 'highlighted' : selected ? 'selected' : ''} onMouseEnter={() => onHighlight(true)} onMouseLeave={() => onHighlight(false)}>
-      <td><label><input type="checkbox" checked={selected} onChange={(e) => onChange(id, 'selected', e.target.checked)} /></label></td>
+    <tr className={highlighted? 'highlighted' : selected ? 'selected' : ''} onMouseEnter={() => { onHighlight(true); }} onMouseLeave={() => { onHighlight(false); }}>
+      <td><label><input type="checkbox" checked={selected} onChange={(e) => { onChange(id, 'selected', e.target.checked); }} /></label></td>
       <td><input type="text" value={label} onChange={inputChangeHandler('label')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
       <td><input type="text" value={content} onChange={inputChangeHandler('content')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
       <td><input type="text" value={posX} onChange={inputChangeHandler('posX')} onFocus={handleInputFocus} disabled={editMode != 'visual'} /></td>
@@ -477,33 +601,39 @@ function TableEditorEntry({ id, selected, highlighted, label, content, posX, pos
  * Config component
  * Allows configuration of global options and background settings
  */
-function Config({ options, background, onChange, onBackgroundChange, onSaveHistory }) {
+function Config({ options, background, onChange, onBackgroundChange, onSaveHistory }: {
+  options: Options;
+  background: Background;
+  onChange: <K extends keyof Options>(action: K, value: Options[K]) => void;
+  onBackgroundChange: (data: Background) => void;
+  onSaveHistory: () => void;
+}) {
   const editing = React.useRef(false);
-  const editMode = React.useContext(EditMode);
+  const editMode = React.use(EditMode);
 
-  const handleInputFocus = (e) => {
+  const handleInputFocus = () => {
     editing.current = false;
   };
 
-  const backgroundUploader = React.useRef(null);
+  const backgroundUploader = React.useRef<HTMLInputElement>(null);
 
-  const handleBackgroundDataChange = (e) => {
-    const file = e.target.files[0];
+  const handleBackgroundDataChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
         onSaveHistory();
-        onBackgroundChange({ filename: file.name, data: reader.result });
+        onBackgroundChange({ filename: file.name, data: reader.result as string });
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleUploadBackground = (e) => {
-    backgroundUploader.current.click();
+  const handleUploadBackground = () => {
+    backgroundUploader.current?.click();
   };
 
-  const handleBackgroundFilenameChange = (e) => {
+  const handleBackgroundFilenameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!editing.current) {
       editing.current = true;
       onSaveHistory();
@@ -516,53 +646,59 @@ function Config({ options, background, onChange, onBackgroundChange, onSaveHisto
     onBackgroundChange({ data: '' });
   };
 
-  const checkboxHandler = (action) => {
-    return (e) => { onSaveHistory(); onChange(action, e.target.checked) };
-  }
+  const checkboxHandler = (action: keyof Options) => {
+    return (e: React.ChangeEvent<HTMLInputElement>) => {
+      onSaveHistory();
+      onChange(action, e.target.checked);
+    };
+  };
 
-  const selectHandler = (action) => {
-    return (e) => { onSaveHistory(); onChange(action, e.target.value) };
+  const selectHandler = (action: keyof Options) => {
+    return (e: React.ChangeEvent<HTMLSelectElement>) => {
+      onSaveHistory();
+      onChange(action, e.target.value);
+    };
   };
 
   return (
     <>
       <h3>Background Image</h3>
-      <div class="button-group">
-        <label for="settings-src">
+      <div className="button-group">
+        <label htmlFor="settings-src">
           <span>{ background.data ? 'Filename' : 'URL' }</span>
         </label>
         <input type="file" accept="image/*" ref={backgroundUploader} onChange={handleBackgroundDataChange} hidden />
         <input id="settings-src" type="text" value={background.filename} onChange={handleBackgroundFilenameChange} onFocus={handleInputFocus} disabled={editMode != 'visual'} />
       </div>
-      <div class="button-group">
-        <button onClick={handleUploadBackground}>Upload</button>
-        <button onClick={handleClearBackgroundData} disabled={!background.data}>Clear Data</button>
+      <div className="button-group">
+        <button type='button' onClick={handleUploadBackground}>Upload</button>
+        <button type='button' onClick={handleClearBackgroundData} disabled={!background.data}>Clear Data</button>
       </div>
 
       <h3>Global options</h3>
       <div>
-        <label class="button"><input type="checkbox" checked={options.reversible} onChange={checkboxHandler('reversible') } disabled={editMode != 'visual'} /><span>Reversible</span></label>
-        <label class="button"><input type="checkbox" checked={options.centered} onChange={checkboxHandler('centered') } disabled={editMode != 'visual'} /><span>Centered</span></label>
-        <label class="button" title="Once revealed, content can be hidden"><input type="checkbox" checked={options.hideable} onChange={checkboxHandler('hideable') } disabled={editMode != 'visual'} /><span>Hideable</span></label>
+        <label className="button"><input type="checkbox" checked={options.reversible} onChange={checkboxHandler('reversible') } disabled={editMode != 'visual'} /><span>Reversible</span></label>
+        <label className="button"><input type="checkbox" checked={options.centered} onChange={checkboxHandler('centered') } disabled={editMode != 'visual'} /><span>Centered</span></label>
+        <label className="button" title="Once revealed, content can be hidden"><input type="checkbox" checked={options.hideable} onChange={checkboxHandler('hideable') } disabled={editMode != 'visual'} /><span>Hideable</span></label>
       </div>
       <div>
         <h4>Question style</h4>
-        <div class="button-group">
+        <div className="button-group">
           <label><span>Background</span></label>
           <OptionSelect value={options['front']} values={optionValues['front']} defaultValue={defaultOptions['front']} onChange={selectHandler('front')} />
         </div>
-        <div class="button-group">
+        <div className="button-group">
           <label><span>Text</span></label>
           <OptionSelect value={options['front-text']} values={optionValues['front-text']} defaultValue={defaultOptions['front-text']} onChange={selectHandler('front-text')} />
         </div>
       </div>
       <div>
         <h4>Answer style</h4>
-        <div class="button-group">
+        <div className="button-group">
           <label><span>Background</span></label>
           <OptionSelect value={options['back']} values={optionValues['back']} defaultValue={defaultOptions['back']} onChange={selectHandler('back')} />
         </div>
-        <div class="button-group">
+        <div className="button-group">
           <label><span>Text</span></label>
           <OptionSelect value={options['back-text']} values={optionValues['back-text']} defaultValue={defaultOptions['back-text']} onChange={selectHandler('back-text')} />
         </div>
@@ -575,12 +711,17 @@ function Config({ options, background, onChange, onBackgroundChange, onSaveHisto
  * OptionSelect component
  * Dropdown for selecting options
  */
-function OptionSelect({value, values, defaultValue, onChange}) {
-  const editMode = React.useContext(EditMode);
+function OptionSelect({value, values, defaultValue, onChange}: {
+  value: string;
+  values: string[];
+  defaultValue: string;
+  onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+}): JSX.Element {
+  const editMode = React.use(EditMode);
 
   return (
     <select value={value} onChange={onChange} disabled={editMode != 'visual'}>
-      {values.map((v, k) => <option key={k} value={v}>{ [v.charAt(0).toUpperCase() + v.slice(1), v === defaultValue ? '(default)' : null].filter(Boolean).join(' ') }</option> )}
+      {values.map((v) => <option key={v} value={v}>{ [v.charAt(0).toUpperCase() + v.slice(1), v === defaultValue ? '(default)' : null].filter(Boolean).join(' ') }</option> )}
     </select>
   );
 }
@@ -589,27 +730,32 @@ function OptionSelect({value, values, defaultValue, onChange}) {
  * TableEditor component
  * Displays a table for managing card elements
  */
-function TableEditor({ entries, onChange, onChangeSelected, onSaveHistory }) {
+function TableEditor({ entries, onChange, onChangeSelected, onSaveHistory }: {
+  entries: Entries;
+  onChange: <K extends keyof EntryAction>(action: K, ...args: EntryAction[K]) => void;
+  onChangeSelected: <K extends keyof SelectedEntryAction>(action: K, ...args: SelectedEntryAction[K]) => void;
+  onSaveHistory: () => void;
+}) {
   const [selectAllChecked, setSelectAllChecked] = React.useState(false);
   const [selectAllIndeterminate, setSelectAllIndeterminate] = React.useState(false);
-  const [selectedCount, setSelectedCount] = React.useState(false);
+  const [selectedCount, setSelectedCount] = React.useState(0);
   const [firstSelected, setFirstSelected] = React.useState(false);
   const [lastSelected, setLastSelected] = React.useState(false);
 
-  const editMode = React.useContext(EditMode);
+  const editMode = React.use(EditMode);
 
-  const handleSelectAll = (e) => {
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     const checked = e.target.checked;
     setSelectAllChecked(checked);
     setSelectAllIndeterminate(false);
-    forEachEntries(entries, (entry, entryIndex, groupIndex) => onChange('update', `${groupIndex}-${entryIndex}`, { selected: checked }));
+    forEachEntries(entries, (_entry, entryIndex, groupIndex) => { onChange('update', entryId(groupIndex, entryIndex), { selected: checked }); });
   };
 
-  const handleDeselectAll = (e) => {
-    forEachEntries(entries, (entry, entryIndex, groupIndex) => onChange('update', `${groupIndex}-${entryIndex}`, { selected: false }));
+  const handleDeselectAll = () => {
+    forEachEntries(entries, (_entry, entryIndex, groupIndex) => { onChange('update', entryId(groupIndex, entryIndex), { selected: false }); });
   };
 
-  const handleHighlight = (id, value) => onChange('update', id, { highlighted: value });
+  const handleHighlight = (id: EntryId, value: boolean) => { onChange('update', id, { highlighted: value }); };
 
   React.useEffect(() => {
     const flattenEntries = entries.flat();
@@ -633,11 +779,11 @@ function TableEditor({ entries, onChange, onChangeSelected, onSaveHistory }) {
     }
   }, [entries]);
 
-  const entryHandler = (action) => {
-    return () => { onSaveHistory(); onChange(action); };
+  const addEntryHandler = () => {
+    return () => { onSaveHistory(); onChange('create'); };
   }
 
-  const selectedEntriesHandler = (action, ...args) => {
+  const selectedEntriesHandler = <K extends keyof SelectedEntryAction>(action: K, ...args: SelectedEntryAction[K]) => {
     return () => { onSaveHistory(); onChangeSelected(action, ...args); };
   }
 
@@ -649,13 +795,13 @@ function TableEditor({ entries, onChange, onChangeSelected, onSaveHistory }) {
           <thead>
             <tr>
               <th style={{ width: 0 }}>
-                <label><input type="checkbox" checked={selectAllChecked} ref={el => el && (el.indeterminate = selectAllIndeterminate)} onChange={handleSelectAll} /></label>
+                <label><input type="checkbox" checked={selectAllChecked} ref={el => { if (el) el.indeterminate = selectAllIndeterminate; }} onChange={handleSelectAll} /></label>
               </th>
               <th style={{ width: '30%' }}>Label</th>
               <th style={{ width: '30%' }}>Content</th>
-              <th style={{ width: '10%' }} colspan="2">Position X-Y (%)</th>
-              <th style={{ width: '10%' }} colspan="2">Size W-H (%)</th>
-              <th style={{ width: '20%' }} colspan="2">Options</th>
+              <th style={{ width: '10%' }} colSpan={2}>Position X-Y (%)</th>
+              <th style={{ width: '10%' }} colSpan={2}>Size W-H (%)</th>
+              <th style={{ width: '20%' }} colSpan={2}>Options</th>
             </tr>
           </thead>
           {entries.map((entry, groupIndex) => (
@@ -663,10 +809,10 @@ function TableEditor({ entries, onChange, onChangeSelected, onSaveHistory }) {
               {entry.map((entry, index) => (
                 <TableEditorEntry
                   key={index}
-                  id={`${groupIndex}-${index}`}
+                  id={entryId(groupIndex, index)}
                   {...entry}
-                  onChange={(id, field, value) => onChange('update', id, { [field]: value })}
-                  onHighlight={(value) => handleHighlight(`${groupIndex}-${index}`, value)}
+                  onChange={(id, field, value) => { onChange('update', id, { [field]: value }); }}
+                  onHighlight={(value) => { handleHighlight(entryId(groupIndex, index), value); }}
                   onSaveHistory={onSaveHistory}
                 />
               ))}
@@ -674,21 +820,21 @@ function TableEditor({ entries, onChange, onChangeSelected, onSaveHistory }) {
           ))}
         </table>
       </div>
-      <div class="toolbar">
-        <span>{selectedCount} rows selected (<a href="#" class="button" onClick={handleDeselectAll}>clear</a>) - </span>
-        <div class="button-group">
-          <button onClick={selectedEntriesHandler('group')} disabled={editMode != 'visual' || !selectedCount}>Group</button>
-          <button onClick={selectedEntriesHandler('isolate')} disabled={editMode != 'visual' || !selectedCount}>Isolate</button>
+      <div className="toolbar">
+        <span>{selectedCount} rows selected (<a className="button" onClick={handleDeselectAll}>clear</a>) - </span>
+        <div className="button-group">
+          <button type="button" onClick={selectedEntriesHandler('group')} disabled={editMode != 'visual' || !selectedCount}>Group</button>
+          <button type="button" onClick={selectedEntriesHandler('isolate')} disabled={editMode != 'visual' || !selectedCount}>Isolate</button>
         </div>
 
-        <div class="button-group">
-          <button onClick={selectedEntriesHandler('move', 'up')} disabled={editMode != 'visual' || !selectedCount || firstSelected}>Move Up</button>
-          <button onClick={selectedEntriesHandler('move', 'down')} disabled={editMode != 'visual' || !selectedCount || lastSelected}>Move Down</button>
+        <div className="button-group">
+          <button type="button" onClick={selectedEntriesHandler('move', 'up')} disabled={editMode != 'visual' || !selectedCount || firstSelected}>Move Up</button>
+          <button type="button" onClick={selectedEntriesHandler('move', 'down')} disabled={editMode != 'visual' || !selectedCount || lastSelected}>Move Down</button>
         </div>
 
-        <button onClick={selectedEntriesHandler('delete')} disabled={editMode != 'visual' || !selectedCount}>Remove</button>
+        <button type="button" onClick={selectedEntriesHandler('delete')} disabled={editMode != 'visual' || !selectedCount}>Remove</button>
 
-        <button onClick={entryHandler('create')} disabled={editMode != 'visual'}>Add</button>
+        <button type="button" onClick={addEntryHandler} disabled={editMode != 'visual'}>Add</button>
       </div>
     </div>
   );
@@ -697,46 +843,89 @@ function TableEditor({ entries, onChange, onChangeSelected, onSaveHistory }) {
 /**
  * Generate options string
  */
-const formatOptions = (options) => Object.keys(options).map(key => {
-  const value = options[key];
+const formatOptions = (options: Options): string[] => Object.keys(options).map((key) => {
+  const value = options[key as keyof Options];
   if (value === true) return key;
-  if (typeof value === 'string' && value.length && value !== defaultOptions[key]) return [key, value].join('-');
+  if (typeof value === 'string' && value.length && value !== defaultOptions[key as keyof Options]) return [key, value].join('-');
   return null;
 }).filter(value => value !== null);
+
+const sanitizeHtml = (str: string): string => {
+  if (!DOMPurify.isSupported) throw new Error('DOMPurify is not supported in this environment');
+  const config = {
+    USE_PROFILES: {html: true},
+  };
+  return DOMPurify.sanitize(str, config);
+};
+
+function SanitizedHtmlElement({ element, html }: {
+  element: JSX.Element;
+  html: string;
+}): JSX.Element {
+  // eslint-disable-next-line react-x/no-clone-element
+  return React.cloneElement(element, { dangerouslySetInnerHTML: { __html: sanitizeHtml(html) } });
+}
 
 /**
  * VisualEditor component
  * Provides a drag-and-drop interface for editing card elements
  */
-function VisualEditor({ entries, options, background, htmlContent, onEntryChange, onSaveHistory }) {
+function VisualEditor({ entries, options, background, onEntryChange, onSaveHistory }: {
+  entries: Entries;
+  options: Options;
+  background: Background;
+  onEntryChange: <K extends keyof EntryAction>(action: K, ...args: EntryAction[K]) => void;
+  onSaveHistory: () => void;
+}): JSX.Element {
   const [revealed, setRevealed] = React.useState(false);
-  const [highlightedElement, setHighlightedElement] = React.useState(null);
+  const [highlightedElement, setHighlightedElement] = React.useState<VisualElement|null>(null);
   const [snapToGrid, setSnapToGrid] = React.useState({gridSize: 1, decimals: 0});
 
-  const editMode = React.useContext(EditMode);
+  const editMode = React.use(EditMode);
   const [preview, setPreview] = React.useState(false);
   const [sequencingMask, setHighlightSequencing] = React.useState('disabled');
 
-  const clamp = (x, min, max) => Math.max(0, Math.min(100, x));
+  const clamp = (x: number, min: number, max: number) => Math.max(min, Math.min(max, x));
 
-  const getMousePosition = (e, ref) => {
+  interface Coordinates {
+    x: number;
+    y: number;
+  }
+
+  interface Size {
+    width: number;
+    height: number;
+  }
+  interface MousePosition extends Coordinates {
+    e: React.MouseEvent;
+    ref: HTMLElement;
+    left: number;
+    right: number;
+    top: number;
+    bottom: number;
+  }
+
+  const getMousePosition = (e: React.MouseEvent, ref: HTMLElement): MousePosition => {
+    if (!(e.target instanceof HTMLElement)) throw new Error('Target is not an HTMLElement');
+
+    const target = e.target;
     const rect = ref.getBoundingClientRect();
     const distances = {
-      left: e.clientX - rect.left - e.target.clientLeft,
-      right: rect.left - e.target.clientLeft + rect.width - e.clientX,
-      top: e.clientY - rect.top - e.target.clientTop,
-      bottom: rect.top - e.target.clientTop + rect.height - e.clientY,
+      left: e.clientX - rect.left - target.clientLeft,
+      right: rect.left - target.clientLeft + rect.width - e.clientX,
+      top: e.clientY - rect.top - target.clientTop,
+      bottom: rect.top - target.clientTop + rect.height - e.clientY,
     };
     return {
       e,
       ref,
-      x: clamp(distances.left/rect.width*100, 0, 100),
-      y: clamp(distances.top/rect.height*100, 0, 100),
+      x: clamp(distances.left / rect.width * 100, 0, 100),
+      y: clamp(distances.top / rect.height * 100, 0, 100),
       ...distances,
     };
   };
 
-  const getElementCapability = (e, target) => {
+  const getElementCapability = (e: React.MouseEvent, target: HTMLElement) => {
     const mouseElementPosition = getMousePosition(e, target);
     
     const border = Object.entries({
@@ -749,8 +938,21 @@ function VisualEditor({ entries, options, background, htmlContent, onEntryChange
     return border.length ? 'resize-' + border : 'drag';
   };
 
-  const handleMouseEnter = (e, entryId, entry, ref) => {
-    const newHighlightedElement = { entryId, entry, target: e.target, ref, position: null, size: null, capability: null };
+  interface VisualElement {
+    entryId: EntryId;
+    entry: Entry;
+    target: EventTarget;
+    ref: HTMLElement;
+    position?: Coordinates;
+    size?: Size;
+    capability?: string;
+    action?: 'drag' | 'resize';
+    direction?: string;
+    mousePosition?: MousePosition;
+  }
+
+  const handleMouseEnter = (e: React.MouseEvent, entryId: EntryId, entry: Entry, ref: HTMLElement): void => {
+    const newHighlightedElement: VisualElement = { entryId, entry, target: e.target, ref };
     setHighlightedElement(prevHighlightedElement => {
       if (prevHighlightedElement) {
         if (prevHighlightedElement.action) return prevHighlightedElement;
@@ -773,7 +975,7 @@ function VisualEditor({ entries, options, background, htmlContent, onEntryChange
     });
   };
 
-  const handleMouseDown = (e, entryId, entry, ref) => {
+  const handleMouseDown = (e: React.MouseEvent, entryId: EntryId, entry: Entry, ref: HTMLElement) => {
     if (!highlightedElement) return;
 
     if (e.ctrlKey) {
@@ -786,31 +988,37 @@ function VisualEditor({ entries, options, background, htmlContent, onEntryChange
 
     onSaveHistory();
 
-    const position = { x: parseFloat(entry.posX), y: parseFloat(entry.posY) };
-    const size = { width: parseFloat(entry.width), height: parseFloat(entry.height) };
+    const position: Coordinates = { x: parseFloat(entry.posX), y: parseFloat(entry.posY) };
+    const size: Size = { width: parseFloat(entry.width), height: parseFloat(entry.height) };
     const capability = highlightedElement.capability;
+    if (!capability) return;
     
     if (capability == 'drag' && !highlightedElement.action) {
-      const newAction = { action: 'drag', position, size, mousePosition: getMousePosition(e, ref) };
+      const newAction: Partial<VisualElement> = { action: 'drag', position, size, mousePosition: getMousePosition(e, ref) };
       setHighlightedElement(prevHighlightedElement => prevHighlightedElement ? {...prevHighlightedElement, ...newAction} : null);
     }
 
     if (capability.startsWith('resize-')) {
-      const newAction = { action: 'resize', position, size, direction: capability.split('-').pop(), mousePosition: getMousePosition(e, ref) };
+      const newAction: Partial<VisualElement> = { action: 'resize', position, size, direction: capability.split('-').pop(), mousePosition: getMousePosition(e, ref) };
       setHighlightedElement(prevHighlightedElement => prevHighlightedElement ? {...prevHighlightedElement, ...newAction} : null);
     }
   };
 
-  const handleMouseMove = (e) => {
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!highlightedElement) return;
 
     if (!highlightedElement.action) {
       // Update capability if not during an action
+      if (!(highlightedElement.target instanceof HTMLElement)) throw new Error('Target is not an HTMLElement');
+
       const capability = getElementCapability(e, highlightedElement.target);
       setHighlightedElement(prevHighlightedElement => prevHighlightedElement ? {...prevHighlightedElement, capability} : null);
     }
     
     if (highlightedElement.action === 'drag') {
+      if (!highlightedElement.mousePosition || !highlightedElement.position) throw new Error('Mouse position or entry position is null');
+
+      // Calculate new position based on mouse movement
       const mousePosition = getMousePosition(e, highlightedElement.ref);
       const diff = { x: mousePosition.x - highlightedElement.mousePosition.x, y: mousePosition.y - highlightedElement.mousePosition.y };
       const newPosition = {
@@ -822,6 +1030,8 @@ function VisualEditor({ entries, options, background, htmlContent, onEntryChange
     }
 
     if (highlightedElement.action === 'resize') {
+      if (!highlightedElement.mousePosition || !highlightedElement.position || !highlightedElement.size) throw new Error('Mouse position or entry position or size is null');
+
       const mousePosition = getMousePosition(e, highlightedElement.ref);
       const diff = { x: mousePosition.x - highlightedElement.mousePosition.x, y: mousePosition.y - highlightedElement.mousePosition.y };
       const newPosition = {...highlightedElement.position};
@@ -831,6 +1041,7 @@ function VisualEditor({ entries, options, background, htmlContent, onEntryChange
       const centered = (entryCentered === 'centered') || (options.centered && entryCentered !== 'not-centered');
       const resizeMultiplier = centered ? 2 : 1;
       const direction = highlightedElement.direction;
+      if (!direction) throw new Error('Direction is null');
 
       if (direction.includes('n')) {
         newSize.height = roundToGrid(highlightedElement.size.height - diff.y * resizeMultiplier); // Improve roundToGrid
@@ -860,28 +1071,30 @@ function VisualEditor({ entries, options, background, htmlContent, onEntryChange
     }
   };
 
-  const handleMouseUp = (e) => {
+  const handleMouseUp = () => {
     if (!highlightedElement || !highlightedElement.action) return;
 
-    setHighlightedElement(prevHighlightedElement => prevHighlightedElement ? {...prevHighlightedElement, action: null, position: null, size: null} : null);
+    setHighlightedElement(prevHighlightedElement => prevHighlightedElement ? {...prevHighlightedElement, action: undefined, position: undefined, size: undefined} : null);
   };
 
-  const handleSnapToGrid = (value) => {
+  const handleSnapToGrid = (value: string) => {
     const gridSize = parseFloat(value);
-    const decimals = value.includes('.') ? value.split('.').pop().length : 0;
+    const decimals = value.includes('.') ? (value.split('.')[1]||'').length : 0;
     setSnapToGrid({gridSize, decimals});
   };
 
-  const roundToGrid = (value) => {
+  const roundToGrid = (value: number) => {
     return Math.round(value/snapToGrid.gridSize)*snapToGrid.gridSize;
   };
 
-  const handleDeselectAll = (e) => {
+  const handleDeselectAll = (e: React.MouseEvent) => {
+    if (!(e.target instanceof HTMLElement)) throw new Error('Target is not an HTMLElement');
+
     // Check if the click is outside of any reveal element
     if (!e.target.closest('.reveal')) {
       forEachEntries(entries, (entry, entryIndex, groupIndex) => {
         if (entry.selected) {
-          onEntryChange('update', `${groupIndex}-${entryIndex}`, { selected: false });
+          onEntryChange('update', entryId(groupIndex, entryIndex), { selected: false });
         }
       });
     }
@@ -891,16 +1104,16 @@ function VisualEditor({ entries, options, background, htmlContent, onEntryChange
     <div id="visual-editor" className={['app-panel'].filter(Boolean).join(' ')}>
       <h2>Visual Editor</h2>
 
-      <div class="toolbar">
-        <div class="button-group">
-          <label class="button"><input type="checkbox" checked={preview} onChange={(e) => setPreview(e.target.checked)} /> <span>Preview</span></label>
-          <label class="button"><input type="checkbox" checked={revealed} onChange={(e) => setRevealed(e.target.checked)} /> <span>Show Answer</span></label>
+      <div className="toolbar">
+        <div className="button-group">
+          <label className="button"><input type="checkbox" checked={preview} onChange={(e) => { setPreview(e.target.checked); }} /> <span>Preview</span></label>
+          <label className="button"><input type="checkbox" checked={revealed} onChange={(e) => { setRevealed(e.target.checked); }} /> <span>Show Answer</span></label>
         </div>
-        <div class="button-group">
+        <div className="button-group">
           <label>
             <span>Sequencing mask:</span>
           </label>
-          <select id="ve-mask" value={revealed ? 'default' : sequencingMask} onChange={(e) => setHighlightSequencing(e.target.value)} disabled={revealed || preview}>
+          <select id="ve-mask" value={revealed ? 'default' : sequencingMask} onChange={(e) => { setHighlightSequencing(e.target.value); }} disabled={revealed || preview}>
             <option value="disabled">Disabled</option>
             <option value="default">Normal</option>
             <option value="20">Light</option>
@@ -908,11 +1121,11 @@ function VisualEditor({ entries, options, background, htmlContent, onEntryChange
             <option value="FF">Full</option>
           </select>
         </div>
-        <div class="button-group">
+        <div className="button-group">
           <label>
             <span>Snap to grid:</span>
           </label>
-          <select value={snapToGrid.gridSize} onChange={(e) => handleSnapToGrid(e.target.value)} disabled={editMode != 'visual' || preview}>
+          <select value={snapToGrid.gridSize} onChange={(e) => { handleSnapToGrid(e.target.value); }} disabled={editMode != 'visual' || preview}>
             <option value="0.01">None</option>
             <option value="0.1">Tiny</option>
             <option value="1">Small</option>
@@ -941,7 +1154,7 @@ function VisualEditor({ entries, options, background, htmlContent, onEntryChange
             {entries.slice().reverse().map((group, groupIndex) => (
               <React.Fragment key={groupIndex}>
                 {group.slice().reverse().map((entry, entryIndex) => {
-                  const id = `${entries.length - groupIndex - 1}-${group.length - entryIndex - 1}`;
+                  const id = entryId(entries.length - groupIndex - 1, group.length - entryIndex - 1);
                   return (
                     <div
                       key={entryIndex}
@@ -952,13 +1165,13 @@ function VisualEditor({ entries, options, background, htmlContent, onEntryChange
                         ...entry.options.split(' '),
                       ].filter(Boolean).join(' ')}
                       style={{ left: entry.posX+'%', top: entry.posY+'%', width: entry.width+'%', height: entry.height+'%' }}
-                      onMouseDown={(e) => handleMouseDown(e, id, entry, e.currentTarget.parentElement)}
-                      onMouseEnter={(e) => handleMouseEnter(e, id, entry, e.currentTarget.parentElement)}
+                      onMouseDown={(e) => { if (e.currentTarget.parentElement) handleMouseDown(e, id, entry, e.currentTarget.parentElement); }}
+                      onMouseEnter={(e) => { if (e.currentTarget.parentElement) handleMouseEnter(e, id, entry, e.currentTarget.parentElement); }}
                       onMouseLeave={handleMouseLeave}
                     >
                       <input id={id} type="checkbox" />
-                      <label htmlFor={id} dangerouslySetInnerHTML={{ __html: entry.label }} />
-                      <div dangerouslySetInnerHTML={{ __html: entry.content }} />
+                      <SanitizedHtmlElement element={<label htmlFor={id} />} html={entry.label} />
+                      <SanitizedHtmlElement element={<div />} html={entry.content} />
                     </div>
                   );
                 })}
@@ -978,7 +1191,7 @@ function VisualEditor({ entries, options, background, htmlContent, onEntryChange
               <div className="frame">
                   <div className="front">Front/Title</div>
                   <div className="back">
-                    <Preview entries={entries} options={options} backgroundSrc={background.data || background.filename} reveal={revealed} />
+                    <Preview entries={entries} options={options} backgroundSrc={background.data || background.filename || ''} reveal={revealed} />
                   </div>
                   { revealed && <div className="mnemonic">Mnemonic...</div> }
               </div>
@@ -999,14 +1212,19 @@ function VisualEditor({ entries, options, background, htmlContent, onEntryChange
  * Preview component
  * Renders a preview of the card
  */
-function Preview({ entries, options, backgroundSrc, reveal }) {
+function Preview({ entries, options, backgroundSrc, reveal }: {
+  entries: Entries;
+  options: Options;
+  backgroundSrc: string;
+  reveal: boolean;
+}) {
   return (
     <div className={[ 'reveal-container', reveal ? 'revealed' : null, ...formatOptions(options), ].filter(Boolean).join(' ')}>
       <img className="reveal-background" src={backgroundSrc} />
       {entries.slice().reverse().map((group, groupIndex) => (
         <React.Fragment key={groupIndex}>
           {group.slice().reverse().map((entry, entryIndex) => {
-            const id = `${entries.length - groupIndex - 1}-${group.length - entryIndex - 1}`;
+            const id = entryId(entries.length - groupIndex - 1, group.length - entryIndex - 1);
             return (
               <div
                 key={entryIndex}
@@ -1014,8 +1232,8 @@ function Preview({ entries, options, backgroundSrc, reveal }) {
                 style={{ left: entry.posX+'%', top: entry.posY+'%', width: entry.width+'%', height: entry.height+'%' }}
               >
                 <input id={id} type="checkbox" />
-                <label htmlFor={id} dangerouslySetInnerHTML={{ __html: entry.label }} />
-                <div dangerouslySetInnerHTML={{ __html: entry.content }} />
+                <SanitizedHtmlElement element={<label htmlFor={id} />} html={entry.label} />
+                <SanitizedHtmlElement element={<div />} html={entry.content} />
               </div>
             );
           })}
@@ -1030,39 +1248,45 @@ function Preview({ entries, options, backgroundSrc, reveal }) {
  * HtmlEditor component
  * Allows direct editing of the card's HTML
  */
-function HtmlEditor({ htmlContent, onHtmlContentChange, importStatus, onEditMode }) {
-  const editMode = React.useContext(EditMode);
+function HtmlEditor({ htmlContent, onHtmlContentChange, importStatus, onEditMode }: {
+  htmlContent?: string;
+  onHtmlContentChange: (html: string) => void;
+  importStatus: ImportStatus;
+  onEditMode: (mode: EditMode, save?: boolean) => void;
+}) {
+  const editMode = React.use(EditMode);
 
   return (
-    <div id="html-editor" class="app-panel">
+    <div id="html-editor" className="app-panel">
       <h2>HTML Editor</h2>
       
-      <div class="toolbar">
-        { editMode == 'html' && (
+      <div className="toolbar">
+        { editMode === 'html' && (
           <>
-            <button onClick={() => onEditMode('visual', true)} disabled={!importStatus.valid}>Save</button>
-            <button onClick={() => onEditMode('visual', false)}>Cancel</button>
+            <button type="button" onClick={() => { onEditMode('visual', true); }} disabled={!importStatus.valid}>Save</button>
+            <button type="button" onClick={() => { onEditMode('visual', false); }}>Cancel</button>
           </>
-        ) || (
-          <button onClick={() => onEditMode('html')}>Edit...</button>
-        ) }
+        )}
+        { editMode === 'visual' && (
+          <button type="button" onClick={() => { onEditMode('html'); }}>Edit...</button>
+        )}
       </div>
 
       <div>
-        { importStatus.errors?.length > 0 && (
-          <ul class="import-errors">
-            { importStatus.errors.map(error => <li>{error}</li>) }
+        { (importStatus.errors?.length || 0) > 0 && (
+          <ul className="import-errors">
+            { importStatus.errors?.map(error => <li key={error}>{error}</li>) }
           </ul>
         )}
 
-        { importStatus.warnings?.length > 0 && (
-          <ul class="import-warnings">
-            { importStatus.warnings.map(warning => <li>{warning}</li>) }
+        { (importStatus.warnings?.length || 0) > 0 && (
+          <ul className="import-warnings">
+            { importStatus.warnings?.map(warning => <li key={warning}>{warning}</li>) }
           </ul>
         )}
       </div>
 
-      <textarea style={{ width: '100%', height: '400px' }} value={htmlContent} onChange={(e) => onHtmlContentChange(e.target.value)} disabled={editMode != 'html'}></textarea>
+      <textarea style={{ width: '100%', height: '400px' }} value={htmlContent} onChange={(e) => { onHtmlContentChange(e.target.value); }} disabled={editMode != 'html'}></textarea>
     </div>
   );
 }
@@ -1071,10 +1295,19 @@ function HtmlEditor({ htmlContent, onHtmlContentChange, importStatus, onEditMode
  * SettingsModal component
  * Modal for configuring global settings
  */
-function SettingsModal({ isOpen, onClose, options, background, onChange, onBackgroundChange, onSaveHistory }) {
+function SettingsModal({ isOpen, onClose, options, background, onChange, onBackgroundChange, onSaveHistory }: {
+  isOpen: boolean;
+  onClose: () => void;
+  options: Options;
+  background: Background;
+  onChange: <K extends keyof Options>(action: K, value: Options[K]) => void;
+  onBackgroundChange: (data: Background) => void;
+  onSaveHistory: () => void;
+}): JSX.Element | null {
   if (!isOpen) return null;
 
-  const handleOutsideClick = (e) => {
+  const handleOutsideClick = (e: React.MouseEvent) => {
+    if (!(e.target instanceof HTMLElement)) return;
     if (e.target.classList.contains('modal')) {
       onClose();
     }
@@ -1083,11 +1316,11 @@ function SettingsModal({ isOpen, onClose, options, background, onChange, onBackg
   return (
     <div className="modal" onClick={handleOutsideClick}>
       <div className="modal-window">
-        <button class="modal-close" onClick={onClose}>❌</button>
-        <div class="modal-title">
+        <button type="button" className="modal-close" onClick={onClose}>❌</button>
+        <div className="modal-title">
           <h2>Settings</h2>
         </div>
-        <div class="modal-content">
+        <div className="modal-content">
           <Config
             options={options}
             background={background}
@@ -1105,7 +1338,7 @@ function SettingsModal({ isOpen, onClose, options, background, onChange, onBackg
  * Main application component
  * Combines all components and manages state
  */
-function AppLegacy() {
+function AppLegacy(): JSX.Element {
   const initEntries = [
     [
       { selected: false, highlighted: false, label: "LABEL", content: "CONTENT", posX: "50", posY: "50", width: "20", height: "10", options: "" },
@@ -1114,11 +1347,16 @@ function AppLegacy() {
 
   const initBackground = { filename: "", data: "" };
   const initHistory = { values: [], index: 0, undo: false, redo: false };
-  
-  const [editMode, setEditMode] = React.useState('visual');
 
-  const initImportStatus = { errors: [], warnings: [], valid: false };
-  const [importStatus, setImportStatus] = React.useState(initImportStatus);
+  const [editMode, setEditMode] = React.useState<EditMode>('visual');
+
+  interface ImportStatus {
+    errors: string[];
+    warnings: string[];
+    valid: boolean;
+  }
+  const initImportStatus: ImportStatus = { errors: [], warnings: [], valid: false };
+  const [importStatus, setImportStatus] = React.useState<ImportStatus>(initImportStatus);
 
   /**
    * Adjusts the coordinate origin of an entry between center and top-left, depending on the value of the invert argument.
@@ -1128,14 +1366,15 @@ function AppLegacy() {
    * Return:
    *  - Modified object
    */
-  const centerEntry = (entry, invert) => {
+  const centerEntry = (entry: Entry, invert: boolean): Entry => {
     const factor = invert ? -1 : 1;
-    const adjustments = Object.assign({},
-      ...Object.entries({posX: entry.width, posY: entry.height}).map(v => ({
-        [v[0]]: (parseFloat(entry[v[0]]) + factor * parseFloat(v[1])/2).toFixed(2).replace(REGEX_TRAILING_ZEROS, '')
-      }))
-    )
-    return { ...entry, ...adjustments };
+    const adjust = (pos: string, size: string) => (parseFloat(pos) + factor * parseFloat(size)/2).toFixed(2).replace(REGEX_TRAILING_ZEROS, '');
+
+    return {
+      ...entry,
+      posX: adjust(entry.posX, entry.width),
+      posY: adjust(entry.posY, entry.height),
+    };
   }
 
   /**
@@ -1147,14 +1386,40 @@ function AppLegacy() {
    * Return:
    *  - Modified objects
    */
-  const centerEntries = (entries, invert) => {
+  const centerEntries = (entries: Entries, invert: boolean): Entries => {
     return mapEntries(entries, (entry) => {
       const optionsList = entry.options.split(' ');
       return (OPTION_CHOICES.centered.some(v => optionsList.includes(v))) ? entry : centerEntry(entry, invert);
     });
   };
 
-  const stateReducer = (state, action) => {
+  interface State {
+    entries: Entries;
+    options: Options;
+    background: Background;
+    history: History;
+  }
+
+  interface StateAction {
+    type: keyof StateActions;
+  }
+  interface StateActions {
+    reset: StateAction;
+    import: StateAction & { entries: Entries; options: Options; background: Background };
+    changeOptions: StateAction & { key: keyof Options; value: string | boolean };
+    updateBackground: StateAction & { fields: Partial<Background> };
+    updateEntry: StateAction & { id: EntryId; fields: Partial<Entry> };
+    createEntry: StateAction;
+    deleteSelectedEntries: StateAction;
+    groupSelectedEntries: StateAction;
+    isolateSelectedEntries: StateAction;
+    moveSelectedEntries: StateAction & { direction: 'up' | 'down' };
+    saveHistory: StateAction;
+    undo: StateAction & { clear?: boolean };
+    redo: StateAction;
+  }
+
+  const stateReducer = (state: State, action: StateActions[keyof StateActions]): State => {
     switch (action.type) {
       case 'reset': {
         setEditMode('visual');
@@ -1163,30 +1428,34 @@ function AppLegacy() {
       }
 
       case 'import': {
-        const entries = action.entries;
-        const options = action.options;
-        const background = { ...state.background, ...action.background };
+        const typedAction = action as StateActions['import'];
+        const entries = typedAction.entries;
+        const options = typedAction.options;
+        const background = { ...state.background, ...typedAction.background };
         return { ...state, entries, options, background };
       }
 
       case 'changeOptions': {
-        const entries = (action.key === 'centered' ? centerEntries(state.entries, !action.value) : state.entries );
-        const options = { ...state.options, [action.key]: action.value };
+        const typedAction = action as StateActions['changeOptions'];
+        const entries = (typedAction.key === 'centered' ? centerEntries(state.entries, !typedAction.value) : state.entries );
+        const options = { ...state.options, [typedAction.key]: typedAction.value };
         return { ...state, entries, options };
       }
 
       case 'updateBackground': {
-        const background = { ...state.background, ...action.fields };
+        const typedAction = action as StateActions['updateBackground'];
+        const background = { ...state.background, ...typedAction.fields };
         return { ...state, background };
       }
 
       case 'updateEntry': {
+        const typedAction = action as StateActions['updateEntry'];
         const entries = state.entries.map((group, groupIndex) =>
           group.map((entry, entryIndex) => {
-            const entryId = `${groupIndex}-${entryIndex}`;
-            if (entryId !== action.id) return entry;
+            const id = entryId(groupIndex, entryIndex);
+            if (id !== typedAction.id) return entry;
 
-            const newEntry = { ...entry, ...action.fields };
+            const newEntry = { ...entry, ...typedAction.fields };
 
             // Check if ther is any option change (action.fields has an 'options' key) AND this new options is different than entry.options regarding 'centered' and 'not-centered' values.
             const curCentered = OPTION_CHOICES.centered.find(v => entry.options.split(' ').includes(v)) || (state.options.centered ? 'centered' : 'not-centered');
@@ -1224,13 +1493,13 @@ function AppLegacy() {
 
       case 'groupSelectedEntries':
       case 'isolateSelectedEntries': {
-        const entries = [];
-        let prevSelected = undefined;
-        let prevGroupId = undefined;
+        const entries: Entries = [];
+        let prevSelected: boolean | undefined = undefined;
+        let prevGroupId: number | undefined = undefined;
 
-        forEachEntries(state.entries, (entry, entryId, groupId) => {
+        forEachEntries(state.entries, (entry, _entryId, groupId) => {
           const groupCondition = (action.type === 'groupSelectedEntries') && (entry.selected !== prevSelected || (!entry.selected && groupId !== prevGroupId));
-          const isolateCondition = (action.type === 'isolateSelectedEntries') && (entry.selected || (!entry.selected && prevSelected) || groupId !== prevGroupId);
+          const isolateCondition = (action.type === 'isolateSelectedEntries') && (entry.selected || prevSelected || groupId !== prevGroupId);
           if (groupCondition || isolateCondition) {
             entries.push([]);
             prevSelected = entry.selected;
@@ -1243,12 +1512,13 @@ function AppLegacy() {
       }
 
       case 'moveSelectedEntries': {
-        const dirUp = (action.direction === 'up');
-        const entries = [];
+        const typedAction = action as StateActions['moveSelectedEntries'];
+        const dirUp = (typedAction.direction === 'up');
+        const entries: Entries = [];
         let preventMoving = false;
 
         (dirUp ? state.entries : [...state.entries].reverse()).forEach((group, groupId) => {
-          const newGroup = [];
+          const newGroup: EntryGroup = [];
 
           (dirUp ? group : [...group].reverse()).forEach(entry => {
             if (newGroup.length == 0) {
@@ -1279,7 +1549,6 @@ function AppLegacy() {
       }
 
       case 'saveHistory': {
-        const length = state.history.values.length;
         const index = state.history.index;
         const values = state.history.values.slice(0, index);
         values.push({ entries: mapEntries(state.entries, e => ({ ...e, highlighted: false })), options: state.options, background: state.background }); // Don't save highlighted status
@@ -1296,18 +1565,19 @@ function AppLegacy() {
       }
 
       case 'undo': {
+        const typedAction = action as StateActions['undo'];
         const prevIndex = state.history.index - 1;
         if (prevIndex < 0) return {...state};
 
         const values = state.history.values;
-        if (values.length <= state.history.index && !action.clear) {
+        if (values.length <= state.history.index && !typedAction.clear) {
           values.push({ entries: state.entries, options: state.options, background: state.background });
         }
 
         return {
           ...state,
           ...state.history.values[prevIndex],
-          history: { ...state.history, index: prevIndex, undo: prevIndex > 0, redo: !action.clear },
+          history: { ...state.history, index: prevIndex, undo: prevIndex > 0, redo: !typedAction.clear },
         };
       };
 
@@ -1336,21 +1606,22 @@ function AppLegacy() {
     history: initHistory,
   });
 
-  const [htmlContent, setHtmlContent] = React.useState();
+  const [htmlContent, setHtmlContent] = React.useState<string>();
   const editingHtmlContent = React.useRef(false);
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
 
-  const handleOpenSettings = () => setIsSettingsOpen(true);
-  const handleCloseSettings = () => setIsSettingsOpen(false);
+  const handleOpenSettings = () => { setIsSettingsOpen(true); };
+  const handleCloseSettings = () => { setIsSettingsOpen(false); };
 
   React.useEffect(() => {
     if (editMode != 'visual') return;
 
-    const html = ReactDOMServer.renderToString(<Preview entries={state.entries} options={state.options} backgroundSrc={state.background.filename} reveal={false} />);
+    const html = ReactDOMServer.renderToString(<Preview entries={state.entries} options={state.options} backgroundSrc={state.background.filename||''} reveal={false} />);
     setHtmlContent(
-      html
-        .replace(/(\<\w+\s+[^>]*class="([^"]*\s+)?(reveal|reveal-background|reveal-sequencing)(\s+[^"]*)?"[^>]*>)/g, '\n  $1')
+      sanitizeHtml(html
+        .replace(/(<\w+\s+[^>]*class="([^"]*\s+)?(reveal|reveal-background|reveal-sequencing)(\s+[^"]*)?"[^>]*>)/g, '\n  $1')
         .replace(/<\/div>\s*$/, '\n</div>')
+      )
     );
   }, [state, editMode]);
 
@@ -1370,32 +1641,38 @@ function AppLegacy() {
       toaster.style.borderRadius = '10px';
       toaster.style.zIndex = '1000';
 
+      if (!htmlContent) {
+        toaster.textContent = '⚠️ No content to copy!';
+        document.body.appendChild(toaster);
+        setTimeout(() => document.body.removeChild(toaster), 3000);
+        return;
+      }
+
       navigator.clipboard.writeText(htmlContent).then(() => {
         toaster.textContent = '✅ Copied to clipboard!';
         document.body.appendChild(toaster);
         setTimeout(() => document.body.removeChild(toaster), 3000);
-      }).catch(err => {
+      }).catch(() => {
         toaster.textContent = '⚠️ Failed to copy!';
         document.body.appendChild(toaster);
         setTimeout(() => document.body.removeChild(toaster), 10000);
       });
   };
 
-  const handleOptionsChange = (key, value) => {
+  const handleOptionsChange = <K extends keyof Options>(key: K, value: Options[K]) => {
     dispatch({ type: 'changeOptions', key, value });
   };
 
-  const handleBackgroundChange = (fields) => {
+  const handleBackgroundChange = (fields: Partial<Background>) => {
     dispatch({ type: 'updateBackground', fields });
   };
 
-  const handleEntryChange = (action, id, fields) => {
-    if (action === 'create') dispatch({ type: 'createEntry', id, fields });
-    if (action === 'update') dispatch({ type: 'updateEntry', id, fields });
-    if (action === 'delete') dispatch({ type: 'delete', id });
+  const handleEntryChange = <K extends keyof EntryAction>(action: K, ...args: EntryAction[K]) => {
+    if (action === 'create') dispatch({ type: 'createEntry' });
+    if (action === 'update') dispatch({ type: 'updateEntry', id: args[0], fields: args[1] });
   };
 
-  const handleSelectedEntriesChange = (action, ...args) => {
+  const handleSelectedEntriesChange = <K extends keyof SelectedEntryAction>(action: K, ...args: SelectedEntryAction[K]) => {
     if (action === 'delete') dispatch({ type: 'deleteSelectedEntries' });
     if (action === 'group') dispatch({ type: 'groupSelectedEntries' });
     if (action === 'isolate') dispatch({ type: 'isolateSelectedEntries' });
@@ -1403,18 +1680,18 @@ function AppLegacy() {
   };
 
   const historyHandler = {
-    save: () => dispatch({ type: 'saveHistory' }),
-    undo: () => dispatch({ type: 'undo' }),
-    redo: () => dispatch({ type: 'redo' }),
+    save: () => { dispatch({ type: 'saveHistory' }); },
+    undo: () => { dispatch({ type: 'undo' }); },
+    redo: () => { dispatch({ type: 'redo' }); },
   };
 
   /**
    * App shortcuts
    */
   React.useEffect(() => {
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       const activeElement = document.activeElement;
-      const isFormElement = activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA';
+      const isFormElement = activeElement?.tagName === 'INPUT' || activeElement?.tagName === 'TEXTAREA';
 
       if (!isFormElement) {
         if (e.ctrlKey && e.key === 'z') {
@@ -1434,12 +1711,12 @@ function AppLegacy() {
     };
   }, []);
 
-  const importPercentValue = (value) => {
+  const importPercentValue = (value: string) => {
       const match = value.match(/^(\d+(\.\d+)?)%$/);
       return match ? parseFloat(match[1]) : null;
   }
 
-  const handleHtmlContentChange = (html) => {
+  const handleHtmlContentChange = (html: string) => {
     if (editMode != 'html') return;
 
     if (!editingHtmlContent.current) {
@@ -1449,10 +1726,8 @@ function AppLegacy() {
 
     setHtmlContent(html);
 
-    // Parse HTMl
+    // Parse HTML
     const entries = [];
-    const options = {};
-    const background = {};
     const errors = [];
     const warnings = [];
     
@@ -1460,48 +1735,69 @@ function AppLegacy() {
     const document = parser.parseFromString(html, 'text/html');
 
     const firstElement = document.body.firstElementChild;
-    if (!firstElement.classList.contains('reveal-container')) {
-      errors.push('Missing or invalid class "reveal-container" on the first element.');
-    } else {
-      const optionsList = Array.from(firstElement.classList).filter(cls => cls !== 'reveal-container');
+    const optionClasses = firstElement?.classList.contains('reveal-container') ? Array.from(firstElement.classList) : [];
 
-      optionsList.forEach(cls => {
-        // Look for exact match of boolean value
-        if (cls in defaultOptions && typeof defaultOptions[cls] === 'boolean') {
-          options[cls] = true;
-          return;
-        }
-
-        // Look for prefix-options
-        const match = cls.match(/^(.+)-([^-]*)$/);
-        if (match) {
-          const [, key, value] = match;
-
-          if (key in options) {
-            errors.push(`Multiple values set for option "${key}"`);
-          }
-          options[key] = value;
-
-          if (!optionValues[key]) {
-            return;
-          }
-
-          if (!optionValues[key].includes(value)) {
-            warnings.push(`Invalid value "${value}" for option "${key}"`);
-          }
-          return;
-        }
-
-        options[cls] = true;
-        warnings.push(`Unknown option "${cls}"`);
-      });
+    if (optionClasses.length < 1) {
+      errors.push('Missing class "reveal-container" on the first element.');
     }
+
+    const optionsList = optionClasses.filter(cls => cls !== 'reveal-container');
+
+    const booleanOption = (opt: string, found: string[]): boolean => {
+      if (optionsList.includes(opt)) {
+        found.push(opt);
+        return true;
+      }
+      return false;
+    }
+    const stringOption = (opt: string, found: string[]): string => {
+      const values = optionsList.map(cls => {
+        if (cls === opt) {
+          found.push(cls);
+          return '';
+        }
+        const match = cls.match(/^(.+)-([^-]*)$/);
+        return match && match[1] === opt ? match[2] : null;
+      }).filter(v => v !== null);
+
+      const validValues = values.filter(v => {
+        if (optionValues[opt as keyof typeof optionValues].includes(v)) {
+          return true;
+        } else {
+          warnings.push(`Invalid value "${v}" for option "${opt}", possible values are: ${optionValues[opt as keyof typeof optionValues].join(', ')}`);
+          return false;
+        }
+      });
+
+      if (validValues.length > 1) {
+        errors.push(`Multiple values set for option "${opt}"`);
+      }
+
+      found.push(...values.map(v => `${opt}-${v}`));
+      return (validValues.length > 0) ? validValues[0] : defaultOptions[opt as keyof typeof optionValues];
+    };
+
+    const found: string[] = [];
+    const options: Options = {
+      reversible: booleanOption('reversible', found),
+      centered: booleanOption('centered', found),
+      hideable: booleanOption('hideable', found),
+      front: stringOption('front', found),
+      back: stringOption('back', found),
+      'front-text': stringOption('front-text', found),
+      'back-text': stringOption('back-text', found),
+    };
+
+    optionsList.filter(cls => !found.includes(cls)).forEach(cls => {
+      warnings.push(`Unknown option "${cls}"`);
+    });
     
+    const background: Background = {};
     const backgroundElements = document.querySelectorAll('.reveal-background');
     if (backgroundElements.length == 0) {
       errors.push('Missing element with class "reveal-background"');
     } else {
-      const src = backgroundElements[0].attributes.src.value;
+      const src = backgroundElements[0].attributes.getNamedItem('src')?.value || '';
 
       if (src.length === 0) {
         warnings.push('Background element has empty src property');
@@ -1520,7 +1816,7 @@ function AppLegacy() {
     }
 
     const revealElements = document.querySelectorAll('.reveal, .reveal-sequencing');
-    let currentGroup = [];
+    let currentGroup: EntryGroup = [];
     revealElements.forEach(element => {
       if (element.classList.contains('reveal-sequencing')) {
         if (currentGroup.length > 0) {
@@ -1528,69 +1824,70 @@ function AppLegacy() {
           currentGroup = [];
         }
       } else if (element.classList.contains('reveal')) {
-        console.log({element, input: element.querySelector('input'), label: element.querySelector('label')})
-        const inputId = element.querySelector('input')?.attributes?.id.value;
+        const inputId = element.querySelector('input')?.attributes.getNamedItem('id')?.value;
         if (!inputId) errors.push(`Invalid element: missing input 'id' attribute`);
-        
-        const labelFor = element.querySelector('label')?.attributes?.for.value;
+
+        const labelFor = element.querySelector('label')?.attributes.getNamedItem('for')?.value;
         if (!labelFor) errors.push(`Invalid element: missing label 'for' attribute`);
         
         const id = inputId ? inputId : labelFor;
-        if (labelFor !== inputId) {
+        if (inputId && labelFor && labelFor !== inputId) {
           errors.push(`Invalid element: label 'for' (${labelFor}) and input 'id' (${inputId}) mismatch`);
         }
 
-        const styleLeft = importPercentValue(element.style.left);
-        const styleRight = importPercentValue(element.style.right);
-        const styleWidth = importPercentValue(element.style.width);
+        const styleLeft = element instanceof HTMLElement ? importPercentValue(element.style.left) : null;
+        const styleRight = element instanceof HTMLElement ? importPercentValue(element.style.right) : null;
+        const styleWidth = element instanceof HTMLElement ? importPercentValue(element.style.width) : null;
         const horizontalPosition = { posX: 0, width: 0 };
         if ([styleLeft, styleRight, styleWidth].filter(notNullFilter).length >= 2) {
           if (styleLeft !== null && styleWidth !== null) {
             horizontalPosition.posX = styleLeft;
             horizontalPosition.width = styleWidth;
-            if (styleRight !== null) warnings.push(`Element [${id}]: ignoring 'right' property`);
+            if (styleRight !== null) warnings.push(`Element [${id ?? ''}]: ignoring 'right' property`);
           } else if (styleRight !== null && styleWidth !== null) {
             horizontalPosition.posX = 100 - styleRight - styleWidth;
             horizontalPosition.width = styleWidth;
-            warnings.push(`Element [${id}]: changing 'right' property to 'left' based on 'width'`);
+            warnings.push(`Element [${id ?? ''}]: changing 'right' property to 'left' based on 'width'`);
           } else if (styleLeft !== null && styleRight !== null) {
             horizontalPosition.posX = styleLeft;
             horizontalPosition.width = 100 - styleLeft - styleRight;
-            warnings.push(`Element [${id}]: changing 'right' property to 'width' based on 'left'`);
+            warnings.push(`Element [${id ?? ''}]: changing 'right' property to 'width' based on 'left'`);
           }
         } else {
-          errors.push(`Invalid element [${id}]: insufficient or invalid values for 'left', 'right', or 'width' properties`);
+          errors.push(`Invalid element [${id ?? ''}]: insufficient or invalid values for 'left', 'right', or 'width' properties`);
         }
 
-        const styleTop = importPercentValue(element.style.top);
-        const styleBottom = importPercentValue(element.style.bottom);
-        const styleHeight = importPercentValue(element.style.height);
+        const styleTop = element instanceof HTMLElement ? importPercentValue(element.style.top) : null;
+        const styleBottom = element instanceof HTMLElement ? importPercentValue(element.style.bottom) : null;
+        const styleHeight = element instanceof HTMLElement ? importPercentValue(element.style.height) : null;
         const verticalPosition = { posY: 0, height: 0 };
         if ([styleTop, styleBottom, styleHeight].filter(notNullFilter).length >= 2) {
           if (styleTop !== null && styleHeight !== null) {
             verticalPosition.posY = styleTop;
             verticalPosition.height = styleHeight;
-            if (styleBottom !== null) warnings.push(`Element [${id}]: ignoring 'bottom' property`);
+            if (styleBottom !== null) warnings.push(`Element [${id ?? ''}]: ignoring 'bottom' property`);
           } else if (styleBottom !== null && styleHeight !== null) {
             verticalPosition.posY = 100 - styleBottom - styleHeight;
             verticalPosition.height = styleHeight;
-            warnings.push(`Element [${id}]: changing 'bottom' property to 'top' based on 'height'`);
+            warnings.push(`Element [${id ?? ''}]: changing 'bottom' property to 'top' based on 'height'`);
           } else if (styleTop !== null && styleBottom !== null) {
             verticalPosition.posY = styleTop;
             verticalPosition.height = 100 - styleTop - styleBottom;
-            warnings.push(`Element [${id}]: changing 'bottom' property to 'height' based on 'top'`);
+            warnings.push(`Element [${id ?? ''}]: changing 'bottom' property to 'height' based on 'top'`);
           }
         } else {
-          errors.push(`Invalid element [${id}]: insufficient or invalid values for 'left', 'right', or 'width' properties`);
+          errors.push(`Invalid element [${id ?? ''}]: insufficient or invalid values for 'left', 'right', or 'width' properties`);
         }
 
-        const entry = {
+        const entry: Entry = {
           selected: false,
           highlighted: false,
-          label: element.querySelector('label')?.innerHTML || '',
-          content: element.querySelector('div')?.innerHTML || '',
-          ...horizontalPosition,
-          ...verticalPosition,
+          label: element.querySelector('label')?.innerHTML ?? '',
+          content: element.querySelector('div')?.innerHTML ?? '',
+          posX: horizontalPosition.posX.toFixed(),
+          posY: verticalPosition.posY.toFixed(),
+          width: horizontalPosition.width.toFixed(),
+          height: verticalPosition.height.toFixed(),
           options: Array.from(element.classList).filter(cls => cls !== 'reveal').join(' '),
         };
 
@@ -1606,39 +1903,38 @@ function AppLegacy() {
     setImportStatus({ errors, warnings, valid: errors.length === 0 });
   };
 
-  const handleEditMode = (mode, acceptImport) => {
+  const handleEditMode = (mode: EditMode, acceptImport?: boolean) => {
+    switch (mode) {
+      case 'html':
+        setEditMode('html');
+        editingHtmlContent.current = false;
+        return;
 
-    if (mode === 'html') {
-      setEditMode('html');
-      editingHtmlContent.current = false;
-      return;
-    }
-
-    if (mode === 'visual') {
-      if (editingHtmlContent.current && !acceptImport) {
-        dispatch({ type: 'undo', clear: true });
-      }
-      setEditMode('visual');
-      editingHtmlContent.current = false;
-      setImportStatus(initImportStatus);
-      return;
+      case 'visual':
+        if (editingHtmlContent.current && !acceptImport) {
+          dispatch({ type: 'undo', clear: true });
+        }
+        setEditMode('visual');
+        editingHtmlContent.current = false;
+        setImportStatus(initImportStatus);
+        return;
     }
   };
 
   return (
     <main>
       <style>{appStyle}</style>
-      <EditMode.Provider value={editMode}>
-        <div class="app-navbar">
-          <h1 class="app-header">{APP_TITLE} <span class="app-version">v{APP_VERSION}</span></h1>
+      <EditMode value={editMode}>
+        <div className="app-navbar">
+          <h1 className="app-header">{APP_TITLE} <span className="app-version">v{APP_VERSION}</span></h1>
           <Toolbar onReset={handleReset} onExport={handleExport} history={state.history} onUndo={historyHandler.undo} onRedo={historyHandler.redo} onOpenSettings={handleOpenSettings} />
         </div>
         
         <TableEditor entries={state.entries} onChange={handleEntryChange} onChangeSelected={handleSelectedEntriesChange} onSaveHistory={historyHandler.save} />
-        <VisualEditor entries={state.entries} options={state.options} background={state.background} htmlContent={htmlContent} onEntryChange={handleEntryChange} onSaveHistory={historyHandler.save} />
+        <VisualEditor entries={state.entries} options={state.options} background={state.background} onEntryChange={handleEntryChange} onSaveHistory={historyHandler.save} />
         <HtmlEditor htmlContent={htmlContent} importStatus={importStatus} onEditMode={handleEditMode} onHtmlContentChange={handleHtmlContentChange} />
         <SettingsModal isOpen={isSettingsOpen} onClose={handleCloseSettings} options={state.options} background={state.background} onChange={handleOptionsChange} onBackgroundChange={handleBackgroundChange} onSaveHistory={historyHandler.save} />
-      </EditMode.Provider>
+      </EditMode>
     </main>
   );
 }

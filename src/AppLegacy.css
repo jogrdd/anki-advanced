@@ -118,8 +118,10 @@ button, [type="button"], [type="reset"], [type="submit"], label, select, [type="
   border-radius: 0.25rem;
   box-shadow: 0 0 0px 1px silver;
 }
-button, [type="button"], [type="reset"], [type="submit"], label.button, select {
+button, [type="button"], [type="reset"], [type="submit"], a.button, label.button, select {
   cursor: pointer;
+}
+button, [type="button"], [type="reset"], [type="submit"], label.button, select {
   background: whitesmoke;
 }
 .button-group > button,

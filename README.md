@@ -2,16 +2,13 @@
 
 This project is a proof of concept for creating a web-based card editor for Anki.
 
-Latest version published to https://jogrdd.github.io/anki-advanced/editor-poc.html
-
 The goal is to provide an advanced and user-friendly interface for designing and managing Anki cards, with features that go beyond the native Anki templates.
-The final version of this project will be a full React application, but for now, it is implemented as a single HTML page to explore the possibilities and gather feedback.
 
 ## Features
 
 At this stage, the POC focuses on card-reveal feature, which allow users to click (sequencially or not) on elements in order to reveal part of the answer.
 
-**Very Important**: the card-reveal works without any JavaScript. This is a pure HTML and CSS implementation based on checkbox status. It permits easier integration into Anki without the need for plugin development.
+**Important**: the legacy card-reveal type works without any JavaScript. This is a pure HTML and CSS implementation based on checkbox status. Next advanced card types will rely on JavaScript to provide more advanced features.
 
 ### Current Features
 
@@ -43,11 +40,9 @@ At this stage, the POC focuses on card-reveal feature, which allow users to clic
 
 ### Current State
 
-The project is currently implemented as a single HTML file (`editor-poc.html`) that includes:
-- Embedded React components for the editor.
-- Inline CSS for styling.
-- Babel for JSX compilation in the browser.
-- ReactDOMServer for rendering the HTML preview.
+The project is now implemented as a React application using React-Router and Vite. It is configured to be a single-page application (SPA) with a card editor page at `/anki-advanced/#/editor-poc`.
+It can easily be run locally using Vite's development server or deployed to a static hosting service such as GitHub Pages.
+The latest beta version is available at https://jogrdd.github.io/anki-advanced/#/editor-poc
 
 ### Anki Card Templates
 
@@ -55,19 +50,21 @@ The Anki card templates are stored in a separate folder. These templates are adv
 
 ## How to Use
 
-1. Open the `editor-poc.html` file in a modern web browser.
+1. Open the page in a modern web browser.
 2. Use the **Visual Editor** to drag, resize, and position elements on the card.
 3. Use the **Table Editor** to fine-tune element properties.
 4. Use the **HTML Editor** for advanced customization.
 5. Configure global options and background settings in the **Settings** modal.
 6. Preview the card using the **Preview Mode** toggle.
 7. Export the card HTML using the **Copy to Clipboard** button.
-8. Import the exported HTML into Anki along with the advanced templates.
+8. Import the HTML code into Anki note of type `Advanced (reveal)`
+  - First add an image into the Back field
+  - Then paste the HTML code into the Front field, except for the first `<div class="reveal-container ...">` and `<img>` tags
+  - Add classes other than `reveal-container` to the RevealOptions field
 
 ## Known Limitations
 
 - The current implementation is not optimized for production use.
-- Babel is used for in-browser JSX compilation, which is slow and not suitable for large-scale applications.
 - The editor does not support direct integration with AnkiWeb or AnkiDroid.
 - Limited error handling and validation for user inputs.
 
@@ -77,14 +74,14 @@ Contributions are welcome! If you have ideas, suggestions, or bug reports, pleas
 
 ## License
 
-This project is licensed under the MIT License. See the LICENSE file for details.
+This project is licensed under the GPL-3.0 License. See the LICENSE file for details.
 
 ## Acknowledgments
 
-- [React](https://reactjs.org/) for the UI framework.
 - [Anki](https://apps.ankiweb.net/) for the inspiration and card management system.
-- [Babel](https://babeljs.io/) for enabling JSX in the browser.
-
+- [React](https://reactjs.org/) for the UI framework.
+- [Vite](https://vitejs.dev/) for the development server and build tool.
+- [React-Router](https://reactrouter.com/) for routing in the SPA.
 ---
 
 **Note**: This is a proof of concept and is not intended for production use. The final version will be a standalone React application with enhanced features and performance.

@@ -27,7 +27,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 - Improved UI (blueprintjs.com, chakra-ui.com, ant.design, react.semantic-ui.com, rsuitejs.com, ...)
 
-## [0.3] - 2025-05-09
+## [0.3] - 2025-05-11
 
 ### Added
 - New logo

@@ -1,21 +1,12 @@
-import {
-  createHashRouter,
-  RouterProvider,
-} from "react-router";
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import App from './App.tsx'
-import './index.css';
-
-const router = createHashRouter([
-  { path: "/", Component: App },
-]);
+import App from './App';
 
 const rootElement = document.getElementById('root')
 if (rootElement) {
   createRoot(rootElement).render(
     <StrictMode>
-      <RouterProvider router={router} />
+      <App />
     </StrictMode>
   );
 } else {

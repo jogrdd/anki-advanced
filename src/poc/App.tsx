@@ -1,7 +1,7 @@
 import React, { type JSX } from 'react';
 import ReactDOMServer from 'react-dom/server';
-import appStyle from './AppLegacy.css?inline';
 import DOMPurify from 'dompurify';
+import './App.css';
 
 interface Options {
   reversible: boolean;
@@ -1338,7 +1338,7 @@ function SettingsModal({ isOpen, onClose, options, background, onChange, onBackg
  * Main application component
  * Combines all components and manages state
  */
-function AppLegacy(): JSX.Element {
+export default function App(): JSX.Element {
   const initEntries = [
     [
       { selected: false, highlighted: false, label: "LABEL", content: "CONTENT", posX: "50", posY: "50", width: "20", height: "10", options: "" },
@@ -1923,7 +1923,6 @@ function AppLegacy(): JSX.Element {
 
   return (
     <main>
-      <style>{appStyle}</style>
       <EditMode value={editMode}>
         <div className="app-navbar">
           <h1 className="app-header">{APP_TITLE} <span className="app-version">v{APP_VERSION}</span></h1>
@@ -1938,5 +1937,3 @@ function AppLegacy(): JSX.Element {
     </main>
   );
 }
-
-export default AppLegacy;

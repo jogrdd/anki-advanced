@@ -5,33 +5,33 @@ import { LuArrowRight, LuLayoutTemplate, LuMenu } from 'react-icons/lu'
 import { MdHome } from 'react-icons/md';
 import type { IconType } from 'react-icons';
 import React from 'react';
+import { ColorModeButton } from './components/ui/color-mode';
 
 const baseUrl = import.meta.env.BASE_URL;
 
 function NavItem(props: FlexProps & { icon?: IconType, active?: boolean }) {
   const { icon, active, color, children, ...rest } = props;
+
   return (
     <Flex
       align="center"
-      px="4"
-      pl="4"
-      py="3"
-      cursor="pointer"
-      color={active ? '#25b4fa' : 'inherit'}
-      borderRight={active ? '4px solid #25b4fa' : 'none'}
-      _dark={{
-        color: "gray.400",
-      }}
+      px="4" py="3"
+      cursor="button"
+      layerStyle={active ? 'nav.active' : undefined}
+      color='nav'
       _hover={{
         bg: "gray.100",
+        color: "gray.900",
         _dark: {
           bg: "gray.900",
+          color: "gray.100"
         },
-        color: "gray.900",
       }}
       role="group"
       fontWeight="semibold"
-      transition=".15s ease"
+      transitionDuration="fast"
+      transitionTimingFunction="ease-in-out"
+      userSelect="none"
       {...rest}
     >
       {icon && (
@@ -56,10 +56,7 @@ function BrandLogo() {
       <Text
         fontSize="2xl"
         ml="2"
-        color="brand.500"
-        _dark={{
-          color: "white",
-        }}
+        color="brand"
         fontWeight="semibold"
       >Anki Advanced</Text>
     </Flex>
@@ -76,7 +73,7 @@ function SidebarContent() {
       aria-label="Main Navigation"
     >
       <NavItem active icon={MdHome}>Home</NavItem>
-      <NavItem icon={LuLayoutTemplate}><Link href={`${baseUrl}editor-poc.html`}>Card Editor (POC) <LuArrowRight /></Link></NavItem>
+      <NavItem icon={LuLayoutTemplate}><Link color="nav" href={`${baseUrl}editor-poc.html`}>Card Editor (POC) <LuArrowRight /></Link></NavItem>
     </Flex>
   );
 }
@@ -87,20 +84,27 @@ function Sidebar(props: { width: string, disclosure: UseDisclosureReturn}) {
     <>
       <Box as="nav"
         pos="fixed" top="0" left="0" zIndex="sticky"
-        w={width} h="full" overflowX="hidden" overflowY="auto"
+        h="full" overflowX="hidden" overflowY="auto"
         pb="10"
         color="inherit" bg="white"
         _dark={{
           bg: "gray.800",
         }}
-        borderRightWidth="1px"
-        display={{
-          base: "none",
-          lg: "unset",
+        borderRightWidth={{
+          base: "0",
+          lg: "1px",
         }}
+        w={{
+          base: 0,
+          lg: width,
+        }}
+        transitionDuration="fast"
+        transitionTimingFunction="ease-in-out"
       >
-        <BrandLogo />
-        <SidebarContent />
+        <Box w={width}>
+          <BrandLogo />
+          <SidebarContent />
+        </Box>
       </Box>
       
 
@@ -110,7 +114,7 @@ function Sidebar(props: { width: string, disclosure: UseDisclosureReturn}) {
           <Drawer.Positioner>
             <Drawer.Content maxWidth={width}>
               <Drawer.Header><BrandLogo /></Drawer.Header>
-              <Drawer.Body padding={0}>
+              <Drawer.Body padding="0">
                 <SidebarContent />
               </Drawer.Body>
               <Drawer.CloseTrigger asChild>
@@ -141,10 +145,20 @@ function Navbar(props: { height: string, sidebarDisclosure: UseDisclosureReturn}
       color="inherit"
       h={height}
     >
-      <Group display={{ base: "inline-flex", lg: "none" }}>
-        <IconButton aria-label="Menu" variant="outline" onClick={sidebarDisclosure.onOpen}><LuMenu /></IconButton>
-        <BrandLogo />
-      </Group>
+      <Flex>
+        <Group
+          display={{
+            base: "inline-flex",
+            lg: "none",
+          }}
+        >
+          <IconButton aria-label="Menu" variant="outline" onClick={sidebarDisclosure.onOpen}><LuMenu /></IconButton>
+          <BrandLogo />
+        </Group>
+      </Flex>
+      <Flex>
+        <ColorModeButton />
+      </Flex>
     </Flex>
   );
 }
@@ -173,14 +187,18 @@ function Dashboard() {
       minH="100vh"
     >
       
-      <Sidebar width={sidebarWidth} disclosure={sidebarDisclosure} />
+      <Sidebar
+        width={sidebarWidth}
+        disclosure={sidebarDisclosure}
+      />
       
       <Box
         ml={{
           base: 0,
           lg: sidebarWidth,
         }}
-        transition=".3s ease"
+        transitionDuration="fast"
+        transitionTimingFunction="ease-in-out"
       >
         <Navbar height={navbarHeight} sidebarDisclosure={sidebarDisclosure} />
         <Container as="main" h={`calc(100vh - ${navbarHeight})`} overflow={'auto'}>
@@ -194,7 +212,7 @@ function Dashboard() {
 
 function Home() {
   return (
-    <AbsoluteCenter p="8">
+    <AbsoluteCenter p="4">
       <VStack>
         <Image src={appLogo} opacity={0.25} height="8em" userSelect="none" pointerEvents="none" />
         <Link href={`${baseUrl}editor-poc.html`}>Card Editor (POC) <LuArrowRight /></Link>

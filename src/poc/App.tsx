@@ -779,9 +779,7 @@ function TableEditor({ entries, onChange, onChangeSelected, onSaveHistory }: {
     }
   }, [entries]);
 
-  const addEntryHandler = () => {
-    return () => { onSaveHistory(); onChange('create'); };
-  }
+  const addEntry = () => { onSaveHistory(); onChange('create'); };
 
   const selectedEntriesHandler = <K extends keyof SelectedEntryAction>(action: K, ...args: SelectedEntryAction[K]) => {
     return () => { onSaveHistory(); onChangeSelected(action, ...args); };
@@ -834,7 +832,7 @@ function TableEditor({ entries, onChange, onChangeSelected, onSaveHistory }: {
 
         <button type="button" onClick={selectedEntriesHandler('delete')} disabled={editMode != 'visual' || !selectedCount}>Remove</button>
 
-        <button type="button" onClick={addEntryHandler} disabled={editMode != 'visual'}>Add</button>
+        <button type="button" onClick={addEntry} disabled={editMode != 'visual'}>Add</button>
       </div>
     </div>
   );

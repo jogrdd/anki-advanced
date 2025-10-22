@@ -42,7 +42,7 @@ At this stage, the POC focuses on card-reveal feature, which allow users to clic
 
 The project is now implemented as a React application using React-Router and Vite. It is configured to be a single-page application (SPA) with a card editor page at `/anki-advanced/#/editor-poc`.
 It can easily be run locally using Vite's development server or deployed to a static hosting service such as GitHub Pages.
-The latest beta version is available at https://jogrdd.github.io/anki-advanced/#/editor-poc
+The latest beta version is available at https://jogrdd.github.io/anki-advanced/editor-poc.html
 
 ### Anki Card Templates
 
